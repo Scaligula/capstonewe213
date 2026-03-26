@@ -51,10 +51,16 @@ const ALLOWED_STUDENT_EMAILS = [
   'scal42069@gmail.com',
 ];
 
+// Build the absolute callback URL. On Vercel the internal request arrives over
+// HTTP, so we must use the env var to guarantee the https:// scheme that
+// Google requires.  Falls back to localhost for local development.
+const callbackURL = process.env.GOOGLE_CALLBACK_URL
+  || 'http://localhost:3000/auth/google/callback';
+
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: process.env.GOOGLE_CALLBACK_URL || '/auth/google/callback',
+  callbackURL,
   proxy: true,
 }, async (accessToken, refreshToken, profile, done) => {
   try {
