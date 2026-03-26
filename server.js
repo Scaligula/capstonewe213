@@ -97,6 +97,10 @@ passport.use(new GoogleStrategy({
   }
 }));
 
+app.get('/debug-callback', (req, res) => {
+  res.json({ callbackURL });
+});
+
 app.get('/auth/google', passport.authenticate('google', {
   scope: ['profile', 'email']
 }));
