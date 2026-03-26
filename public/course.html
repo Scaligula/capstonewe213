@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Course — MII VLE</title>
+  <link rel="stylesheet" href="app.css" />
+  <style>
+    .course-layout { display: grid; grid-template-columns: 240px 1fr; gap: 1.25rem; }
+    .course-sidebar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; height: fit-content; position: sticky; top: 1.5rem; }
+    @media (max-width:700px) { .course-layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <header class="topbar">
+    <div class="topbar-brand"><span class="badge">☪</span> MII VLE</div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-actions">
+      <span class="topbar-name" id="topbarName"></span>
+      <div class="topbar-avatar" id="topbarAvatar" onclick="location.href='profile.html'"><span id="topbarInitials">?</span></div>
+      <button class="icon-btn" onclick="location.href='/auth/logout'">⏻</button>
+    </div>
+  </header>
+  <nav class="sidebar">
+    <div class="nav-section-label">Main</div>
+    <a class="nav-item" href="student-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
+    <a class="nav-item active" href="courses.html"><span class="nav-icon">📚</span> My Courses</a>
+    <a class="nav-item" href="assignments.html"><span class="nav-icon">📝</span> Assignments</a>
+    <a class="nav-item" href="calendar.html"><span class="nav-icon">📅</span> Calendar</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Learning</div>
+    <a class="nav-item" href="grades.html"><span class="nav-icon">📊</span> Grades</a>
+    <a class="nav-item" href="progress.html"><span class="nav-icon">📈</span> Progress</a>
+    <a class="nav-item" href="announcements.html"><span class="nav-icon">📣</span> Announcements</a>
+    <a class="nav-item" href="people.html"><span class="nav-icon">👥</span> People</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Account</div>
+    <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+    <a class="nav-item" href="settings.html"><span class="nav-icon">⚙</span> Settings</a>
+    <a class="nav-item" href="/auth/logout"><span class="nav-icon">⏻</span> Sign Out</a>
+  </nav>
+  <main class="main">
+    <div class="page-header">
+      <a href="courses.html" class="btn btn-ghost btn-sm mb-1">← Back to Courses</a>
+      <h1 id="courseName">Loading…</h1>
+      <p id="courseTeacher"></p>
+    </div>
+
+    <div class="course-layout">
+      <!-- Course Sidebar: Tree View + Outline -->
+      <div class="course-sidebar">
+        <div class="tab-bar" style="margin-bottom:1rem">
+          <button class="tab-bar-btn active" onclick="switchTab('tree',this)">Tree View</button>
+          <button class="tab-bar-btn" onclick="switchTab('outline',this)">Course Outline</button>
+        </div>
+
+        <!-- Tree View -->
+        <div id="tab-tree">
+          <div id="treeView"><div class="text-muted text-xs">Loading…</div></div>
+        </div>
+        <!-- Course Outline -->
+        <div id="tab-outline" class="hidden">
+          <div id="outlineView"><div class="text-muted text-xs">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- Main content area -->
+      <div>
+        <div class="tab-bar">
+          <button class="tab-bar-btn active" onclick="switchMain('assignments',this)">Assignments</button>
+          <button class="tab-bar-btn" onclick="switchMain('announcements',this)">Announcements</button>
+          <button class="tab-bar-btn" onclick="switchMain('students',this)">Students</button>
+        </div>
+
+        <!-- Assignments tab -->
+        <div id="main-assignments">
+          <div class="card">
+            <div class="card-title"><span class="ct-icon">📝</span> Assignments</div>
+            <div id="assignmentList"><div class="text-muted text-xs">Loading…</div></div>
+          </div>
+        </div>
+
+        <!-- Announcements tab -->
+        <div id="main-announcements" class="hidden">
+          <div class="card">
+            <div class="card-title"><span class="ct-icon">📣</span> Announcements</div>
+            <div id="announcementList"><div class="text-muted text-xs">Loading…</div></div>
+          </div>
+        </div>
+
+        <!-- Students tab -->
+        <div id="main-students" class="hidden">
+          <div class="card">
+            <div class="card-title"><span class="ct-icon">👥</span> Students in this Course</div>
+            <div class="grid-2" id="studentList" style="gap:0.6rem;margin-top:0.25rem;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const courseId = new URLSearchParams(location.search).get('id');
+let course = null;
+
+function switchTab(name, btn) {
+  ['tree','outline'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('hidden', t!==name);
+  });
+  btn.closest('.tab-bar').querySelectorAll('.tab-bar-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function switchMain(name, btn) {
+  ['assignments','announcements','students'].forEach(t => {
+    document.getElementById('main-'+t).classList.toggle('hidden', t!==name);
+  });
+  btn.closest('.tab-bar').querySelectorAll('.tab-bar-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function init() {
+  const meRes = await fetch('/api/me');
+  if (!meRes.ok) { location.href='/'; return; }
+  const user = await meRes.json();
+  const name = user.name||'';
+  document.getElementById('topbarName').textContent = name;
+  document.getElementById('topbarInitials').textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  if (user.profilePicture) document.getElementById('topbarAvatar').innerHTML=`<img src="${user.profilePicture}" alt="${name}">`;
+
+  if (!courseId) { location.href='courses.html'; return; }
+  const r = await fetch(`/api/course/${courseId}`);
+  if (!r.ok) { location.href='courses.html'; return; }
+  course = await r.json();
+
+  document.title = course.name + ' — MII VLE';
+  document.getElementById('courseName').textContent = course.name;
+  document.getElementById('courseTeacher').textContent = `${course.subject} · ${course.teacher?.name||''}`;
+
+  renderTree();
+  renderOutline();
+  renderAssignments();
+  renderAnnouncements();
+  renderStudents();
+}
+
+function renderTree() {
+  const el = document.getElementById('treeView');
+  const tree = course.treeView||[];
+  if (!tree.length) { el.innerHTML='<div class="text-muted text-xs">No tree view available.</div>'; return; }
+  el.innerHTML = tree.map(node=>`
+    <div class="tree-node">
+      <div class="tree-parent" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        ▸ ${node.title}
+      </div>
+      <div class="tree-children">
+        ${(node.children||[]).map(c=>`<div class="tree-leaf">📄 ${c.title}</div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function renderOutline() {
+  const el = document.getElementById('outlineView');
+  const outline = course.courseOutline||[];
+  if (!outline.length) { el.innerHTML='<div class="text-muted text-xs">No outline available.</div>'; return; }
+  el.innerHTML = outline.sort((a,b)=>a.order-b.order).map((item,i)=>`
+    <div style="padding:0.5rem 0;border-bottom:1px solid var(--border)">
+      <div class="text-sm font-bold" style="color:var(--text)">${i+1}. ${item.title}</div>
+      <div class="text-xs text-muted mt-1">${item.content}</div>
+    </div>`).join('');
+}
+
+function renderAssignments() {
+  const el = document.getElementById('assignmentList');
+  const asgns = course.assignments||[];
+  if (!asgns.length) { el.innerHTML='<div class="text-muted text-xs">No assignments yet.</div>'; return; }
+  el.innerHTML = asgns.map(a=>{
+    const due = new Date(a.dueDate);
+    const start = new Date(a.startDate);
+    const overdue = due < new Date();
+    return `<div class="assignment-item">
+      <div class="asgn-dot" style="${overdue?'background:#b83232':''}"></div>
+      <div style="flex:1">
+        <div class="asgn-title">${a.title}</div>
+        <div class="asgn-meta">Start: ${start.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
+        <div class="asgn-meta ${overdue?'asgn-overdue':'asgn-due'}">Due: ${due.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
+        ${a.description?`<div class="text-xs text-muted mt-1">${a.description}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderAnnouncements() {
+  const el = document.getElementById('announcementList');
+  const anns = course.announcements||[];
+  if (!anns.length) { el.innerHTML='<div class="text-muted text-xs">No announcements.</div>'; return; }
+  el.innerHTML = anns.map(a=>`
+    <div class="announcement-item">
+      <div class="ann-title">${a.title}</div>
+      <div class="ann-meta">${a.author?.name||'MII'} · ${new Date(a.createdAt).toLocaleDateString()}</div>
+      <div class="ann-body">${a.content}</div>
+    </div>`).join('');
+}
+
+function renderStudents() {
+  const el = document.getElementById('studentList');
+  const students = course.students||[];
+  if (!students.length) { el.innerHTML='<div class="text-muted text-xs">No students.</div>'; return; }
+  el.innerHTML = students.map(s=>{
+    const initials = (s.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    return `<div class="people-card">
+      <div class="avatar">${s.profilePicture?`<img src="${s.profilePicture}">`:`${initials}`}</div>
+      <div class="people-info"><div class="pname">${s.name}</div><div class="prole">${s.email}</div></div>
+    </div>`;
+  }).join('');
+}
+
+init();
+</script>
+</body>
+</html>

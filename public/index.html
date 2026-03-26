@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MII VLE — Sign In</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      :root {
+        --green: #1f7a1f;
+        --green-dim: rgba(31,122,31,0.18);
+        --bg: #0e1512;
+        --surface: #141e18;
+        --surface2: #1a2720;
+        --border: rgba(255,255,255,0.07);
+        --text: #ddeedd;
+        --text-muted: #6a9e6e;
+      }
+      html, body { height: 100%; }
+      body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+        padding: 1.5rem;
+        position: relative;
+        overflow: hidden;
+      }
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: url('Meba Islamic Institute.jpg') center/cover no-repeat;
+        opacity: 0.08;
+        z-index: 0;
+      }
+      .page { position: relative; z-index: 1; width: min(100%, 440px); }
+      .logo-area { text-align: center; margin-bottom: 1.75rem; }
+      .mii-badge {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 50px; height: 50px;
+        background: var(--green-dim);
+        border: 1.5px solid rgba(31,122,31,0.35);
+        border-radius: 14px; margin-bottom: 0.85rem; font-size: 1.5rem;
+      }
+      .logo-area h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+      .logo-area p { font-size: 0.72rem; color: var(--text-muted); letter-spacing: 0.18em; text-transform: uppercase; margin-top: 0.2rem; }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 1.75rem;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.55);
+      }
+      .card-title { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.2rem; }
+      .card-sub { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1.25rem; }
+      .tabs {
+        display: grid; grid-template-columns: repeat(4,1fr);
+        background: var(--surface2); border-radius: 8px; overflow: hidden;
+        margin-bottom: 1.25rem; border: 1px solid var(--border);
+      }
+      .tab-btn {
+        border: none; background: transparent; color: var(--text-muted);
+        font-size: 0.7rem; font-weight: 600; padding: 0.55rem 0;
+        cursor: pointer; transition: all 0.2s; letter-spacing: 0.02em;
+      }
+      .tab-btn.active { background: var(--green); color: #fff; }
+      .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.04); color: var(--text); }
+      .auth-hint { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1.1rem; text-align: center; }
+      .google-btn {
+        width: 100%; display: flex; align-items: center; justify-content: center;
+        gap: 0.6rem; padding: 0.7rem 1rem;
+        background: var(--surface2);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 9px; color: var(--text);
+        font-size: 0.88rem; font-weight: 600; cursor: pointer;
+        transition: all 0.2s;
+      }
+      .google-btn:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.18); }
+      .google-btn img { width: 16px; height: 16px; border-radius: 50%; }
+      .alert { margin-top: 0.9rem; padding: 0.6rem 0.85rem; border-radius: 7px; font-size: 0.78rem; }
+      .alert-error { background: rgba(200,50,50,0.12); color: #f08080; border: 1px solid rgba(200,50,50,0.22); }
+      .alert-info  { background: var(--green-dim); color: #80d880; border: 1px solid rgba(31,122,31,0.28); }
+      .footer { text-align: center; margin-top: 1.25rem; font-size: 0.72rem; color: var(--text-muted); line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="logo-area">
+        <div class="mii-badge">☪</div>
+        <h1>Meba Islamic Institute</h1>
+        <p>Virtual Learning Environment</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Sign in to continue</div>
+        <div class="card-sub">Use your institutional Google account</div>
+        <div class="tabs" role="tablist">
+          <button class="tab-btn active" id="tab-student">Student</button>
+          <button class="tab-btn" id="tab-staff">Staff</button>
+          <button class="tab-btn" id="tab-admin">Admin</button>
+          <button class="tab-btn" id="tab-parent">Parent</button>
+        </div>
+        <p class="auth-hint" id="authHint">Sign in with your @mii.edu.ph student email</p>
+        <button class="google-btn" id="googleSignIn">
+          <img src="https://www.google.com/favicon.ico" alt="G" />
+          Continue with Google
+        </button>
+        <div id="loginResult"></div>
+      </div>
+      <div class="footer">456M+9C9, Catalino Cabe St, General Santos City, 9500 South Cotabato</div>
+    </div>
+    <script>
+      const hints = { student:'Sign in with your @mii.edu.ph student email', staff:'Sign in with your @mii.edu.ph staff email', admin:'Sign in with your authorized admin account', parent:'Sign in with your @mii.edu.ph parent email' };
+      ['student','staff','admin','parent'].forEach(r => {
+        document.getElementById('tab-'+r).addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+          document.getElementById('tab-'+r).classList.add('active');
+          document.getElementById('authHint').textContent = hints[r];
+        });
+      });
+      if (new URLSearchParams(location.search).get('login') === 'failed') {
+        const el = document.getElementById('loginResult');
+        el.className = 'alert alert-error';
+        el.textContent = 'Access denied. Only @mii.edu.ph accounts are allowed.';
+      }
+      document.getElementById('googleSignIn').addEventListener('click', () => {
+        const el = document.getElementById('loginResult');
+        el.className = 'alert alert-info';
+        el.textContent = 'Redirecting to Google…';
+        window.location.href = '/auth/google';
+      });
+    </script>
+  </body>
+</html>

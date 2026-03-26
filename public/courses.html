@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Courses — MII VLE</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<div class="app-layout">
+  <header class="topbar">
+    <div class="topbar-brand"><span class="badge">☪</span> MII VLE</div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-actions">
+      <span class="topbar-name" id="topbarName"></span>
+      <div class="topbar-avatar" id="topbarAvatar" onclick="location.href='profile.html'"><span id="topbarInitials">?</span></div>
+      <button class="icon-btn" onclick="location.href='/auth/logout'">⏻</button>
+    </div>
+  </header>
+  <nav class="sidebar">
+    <div class="nav-section-label">Main</div>
+    <a class="nav-item" href="student-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
+    <a class="nav-item active" href="courses.html"><span class="nav-icon">📚</span> My Courses</a>
+    <a class="nav-item" href="assignments.html"><span class="nav-icon">📝</span> Assignments</a>
+    <a class="nav-item" href="calendar.html"><span class="nav-icon">📅</span> Calendar</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Learning</div>
+    <a class="nav-item" href="grades.html"><span class="nav-icon">📊</span> Grades</a>
+    <a class="nav-item" href="progress.html"><span class="nav-icon">📈</span> Progress</a>
+    <a class="nav-item" href="announcements.html"><span class="nav-icon">📣</span> Announcements</a>
+    <a class="nav-item" href="people.html"><span class="nav-icon">👥</span> People</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Account</div>
+    <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+    <a class="nav-item" href="settings.html"><span class="nav-icon">⚙</span> Settings</a>
+    <a class="nav-item" href="/auth/logout"><span class="nav-icon">⏻</span> Sign Out</a>
+  </nav>
+  <main class="main">
+    <div class="page-header">
+      <h1>My Courses</h1>
+      <p>All your enrolled courses and subjects</p>
+    </div>
+    <div class="grid-3" id="courseGrid"><div class="text-muted text-xs">Loading…</div></div>
+  </main>
+</div>
+
+<script>
+async function init() {
+  const res = await fetch('/api/me');
+  if (!res.ok) { location.href='/'; return; }
+  const user = await res.json();
+  const name = user.name||'';
+  const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('topbarName').textContent = name;
+  document.getElementById('topbarInitials').textContent = initials;
+  if (user.profilePicture) document.getElementById('topbarAvatar').innerHTML = `<img src="${user.profilePicture}" alt="${name}">`;
+
+  const el = document.getElementById('courseGrid');
+  const ids = user.enrolledCourses||[];
+  if (!ids.length) { el.innerHTML='<div class="text-muted text-xs">No courses enrolled.</div>'; return; }
+  const courses = await Promise.all(ids.map(id=>fetch(`/api/course/${id}`).then(r=>r.json())));
+  el.innerHTML = courses.map(c=>`
+    <a href="course.html?id=${c._id}" style="text-decoration:none">
+      <div class="course-card">
+        <div class="course-card-subject">${c.subject}</div>
+        <div class="course-card-name">${c.name}</div>
+        <div class="course-card-teacher">👤 ${c.teacher?.name||'Unknown'}</div>
+        <div class="text-xs text-muted mt-1">${(c.students||[]).length} students · ${(c.assignments||[]).length} assignments</div>
+        <div class="btn btn-ghost btn-sm" style="margin-top:0.5rem;width:100%;justify-content:center">Open Course →</div>
+      </div>
+    </a>`).join('');
+}
+init();
+</script>
+</body>
+</html>

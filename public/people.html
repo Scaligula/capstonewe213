@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>People — MII VLE</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<div class="app-layout">
+  <header class="topbar">
+    <div class="topbar-brand"><span class="badge">☪</span> MII VLE</div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-actions">
+      <span class="topbar-name" id="topbarName"></span>
+      <div class="topbar-avatar" id="topbarAvatar" onclick="location.href='profile.html'"><span id="topbarInitials">?</span></div>
+      <button class="icon-btn" onclick="location.href='/auth/logout'">⏻</button>
+    </div>
+  </header>
+  <nav class="sidebar">
+    <div class="nav-section-label">Main</div>
+    <a class="nav-item" href="student-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
+    <a class="nav-item" href="courses.html"><span class="nav-icon">📚</span> My Courses</a>
+    <a class="nav-item" href="assignments.html"><span class="nav-icon">📝</span> Assignments</a>
+    <a class="nav-item" href="calendar.html"><span class="nav-icon">📅</span> Calendar</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Learning</div>
+    <a class="nav-item" href="grades.html"><span class="nav-icon">📊</span> Grades</a>
+    <a class="nav-item" href="progress.html"><span class="nav-icon">📈</span> Progress</a>
+    <a class="nav-item" href="announcements.html"><span class="nav-icon">📣</span> Announcements</a>
+    <a class="nav-item active" href="people.html"><span class="nav-icon">👥</span> People</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Account</div>
+    <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+    <a class="nav-item" href="settings.html"><span class="nav-icon">⚙</span> Settings</a>
+    <a class="nav-item" href="/auth/logout"><span class="nav-icon">⏻</span> Sign Out</a>
+  </nav>
+  <main class="main">
+    <div class="page-header">
+      <h1>People</h1>
+      <p>Students and teachers in your courses</p>
+    </div>
+
+    <div class="mb-2">
+      <div class="text-xs text-muted font-bold mb-1" style="text-transform:uppercase;letter-spacing:0.08em">Teachers</div>
+      <div class="grid-3" id="teacherGrid"><div class="text-muted text-xs">Loading…</div></div>
+    </div>
+    <div>
+      <div class="text-xs text-muted font-bold mb-1" style="text-transform:uppercase;letter-spacing:0.08em">Students</div>
+      <div class="grid-3" id="studentGrid"><div class="text-muted text-xs">Loading…</div></div>
+    </div>
+  </main>
+</div>
+
+<script>
+async function init() {
+  const res = await fetch('/api/me');
+  if (!res.ok) { location.href='/'; return; }
+  const user = await res.json();
+  const name = user.name||'';
+  document.getElementById('topbarName').textContent = name;
+  document.getElementById('topbarInitials').textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  if (user.profilePicture) document.getElementById('topbarAvatar').innerHTML=`<img src="${user.profilePicture}" alt="${name}">`;
+
+  const teachers = new Map(), students = new Map();
+
+  for (const cid of (user.enrolledCourses||[])) {
+    const r = await fetch(`/api/course/${cid}`); if (!r.ok) continue;
+    const course = await r.json();
+    if (course.teacher && !teachers.has(course.teacher._id)) teachers.set(course.teacher._id, { ...course.teacher, courses: [] });
+    if (course.teacher) teachers.get(course.teacher._id).courses.push(course.name);
+    for (const s of (course.students||[])) {
+      if (s._id!==user._id && !students.has(s._id)) students.set(s._id, s);
+    }
+  }
+
+  function personCard(p, role) {
+    const initials = (p.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const sub = role==='teacher'?(p.courses||[]).join(', '):p.email;
+    return `<div class="people-card">
+      <div class="avatar">${p.profilePicture?`<img src="${p.profilePicture}" alt="${p.name}">`:`${initials}`}</div>
+      <div class="people-info">
+        <div class="pname">${p.name}</div>
+        <div class="prole">${sub}</div>
+      </div>
+    </div>`;
+  }
+
+  const tg = document.getElementById('teacherGrid');
+  const sg = document.getElementById('studentGrid');
+  tg.innerHTML = teachers.size ? [...teachers.values()].map(t=>personCard(t,'teacher')).join('') : '<div class="text-muted text-xs">No teachers found.</div>';
+  sg.innerHTML = students.size ? [...students.values()].map(s=>personCard(s,'student')).join('') : '<div class="text-muted text-xs">No other students found.</div>';
+}
+init();
+</script>
+</body>
+</html>

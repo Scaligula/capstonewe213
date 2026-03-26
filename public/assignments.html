@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Assignments — MII VLE</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<div class="app-layout">
+  <header class="topbar">
+    <div class="topbar-brand"><span class="badge">☪</span> MII VLE</div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-actions">
+      <span class="topbar-name" id="topbarName"></span>
+      <div class="topbar-avatar" id="topbarAvatar" onclick="location.href='profile.html'"><span id="topbarInitials">?</span></div>
+      <button class="icon-btn" onclick="location.href='/auth/logout'">⏻</button>
+    </div>
+  </header>
+  <nav class="sidebar">
+    <div class="nav-section-label">Main</div>
+    <a class="nav-item" href="student-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
+    <a class="nav-item" href="courses.html"><span class="nav-icon">📚</span> My Courses</a>
+    <a class="nav-item active" href="assignments.html"><span class="nav-icon">📝</span> Assignments</a>
+    <a class="nav-item" href="calendar.html"><span class="nav-icon">📅</span> Calendar</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Learning</div>
+    <a class="nav-item" href="grades.html"><span class="nav-icon">📊</span> Grades</a>
+    <a class="nav-item" href="progress.html"><span class="nav-icon">📈</span> Progress</a>
+    <a class="nav-item" href="announcements.html"><span class="nav-icon">📣</span> Announcements</a>
+    <a class="nav-item" href="people.html"><span class="nav-icon">👥</span> People</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Account</div>
+    <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+    <a class="nav-item" href="settings.html"><span class="nav-icon">⚙</span> Settings</a>
+    <a class="nav-item" href="/auth/logout"><span class="nav-icon">⏻</span> Sign Out</a>
+  </nav>
+  <main class="main">
+    <div class="page-header">
+      <h1>Assignments</h1>
+      <p>All your pending and upcoming work</p>
+    </div>
+    <div class="tab-bar">
+      <button class="tab-bar-btn active" onclick="filterBy('all',this)">All</button>
+      <button class="tab-bar-btn" onclick="filterBy('upcoming',this)">Upcoming</button>
+      <button class="tab-bar-btn" onclick="filterBy('overdue',this)">Overdue</button>
+    </div>
+    <div class="card">
+      <div id="assignmentList"><div class="text-muted text-xs">Loading…</div></div>
+    </div>
+  </main>
+</div>
+
+<script>
+let allAssignments = [];
+
+function filterBy(filter, btn) {
+  btn.closest('.tab-bar').querySelectorAll('.tab-bar-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const now = new Date();
+  let filtered = allAssignments;
+  if (filter==='upcoming') filtered = allAssignments.filter(a=>new Date(a.dueDate)>=now);
+  if (filter==='overdue')  filtered = allAssignments.filter(a=>new Date(a.dueDate)<now);
+  renderList(filtered);
+}
+
+function renderList(list) {
+  const el = document.getElementById('assignmentList');
+  if (!list.length) { el.innerHTML='<div class="text-muted text-xs">No assignments found.</div>'; return; }
+  el.innerHTML = list.map(a=>{
+    const due = new Date(a.dueDate);
+    const start = new Date(a.startDate);
+    const overdue = due < new Date();
+    return `<div class="assignment-item">
+      <div class="asgn-dot" style="${overdue?'background:#b83232':''}"></div>
+      <div style="flex:1">
+        <div class="flex justify-between items-center">
+          <div class="asgn-title">${a.title}</div>
+          <span class="badge ${overdue?'badge-red':'badge-green'}">${overdue?'Overdue':'Pending'}</span>
+        </div>
+        <div class="asgn-meta">Course: <b style="color:var(--text)">${a._courseName||'—'}</b></div>
+        <div class="asgn-meta">Start: ${start.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
+        <div class="asgn-meta ${overdue?'asgn-overdue':'asgn-due'}">Due: ${due.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}</div>
+        ${a.description?`<div class="text-xs text-muted mt-1">${a.description}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function init() {
+  const meRes = await fetch('/api/me');
+  if (!meRes.ok) { location.href='/'; return; }
+  const user = await meRes.json();
+  const name = user.name||'';
+  document.getElementById('topbarName').textContent = name;
+  document.getElementById('topbarInitials').textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  if (user.profilePicture) document.getElementById('topbarAvatar').innerHTML=`<img src="${user.profilePicture}" alt="${name}">`;
+
+  for (const cid of (user.enrolledCourses||[])) {
+    const cr = await fetch(`/api/course/${cid}`); if (!cr.ok) continue;
+    const course = await cr.json();
+    const ar = await fetch(`/api/course/${cid}/assignments`); if (!ar.ok) continue;
+    const asgns = await ar.json();
+    asgns.forEach(a => { a._courseName = course.name; allAssignments.push(a); });
+  }
+  allAssignments.sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate));
+  renderList(allAssignments);
+}
+init();
+</script>
+</body>
+</html>

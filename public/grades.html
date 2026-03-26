@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grades — MII VLE</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<div class="app-layout">
+  <header class="topbar">
+    <div class="topbar-brand"><span class="badge">☪</span> MII VLE</div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-actions">
+      <span class="topbar-name" id="topbarName"></span>
+      <div class="topbar-avatar" id="topbarAvatar" onclick="location.href='profile.html'"><span id="topbarInitials">?</span></div>
+      <button class="icon-btn" onclick="location.href='/auth/logout'">⏻</button>
+    </div>
+  </header>
+  <nav class="sidebar">
+    <div class="nav-section-label">Main</div>
+    <a class="nav-item" href="student-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
+    <a class="nav-item" href="courses.html"><span class="nav-icon">📚</span> My Courses</a>
+    <a class="nav-item" href="assignments.html"><span class="nav-icon">📝</span> Assignments</a>
+    <a class="nav-item" href="calendar.html"><span class="nav-icon">📅</span> Calendar</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Learning</div>
+    <a class="nav-item active" href="grades.html"><span class="nav-icon">📊</span> Grades</a>
+    <a class="nav-item" href="progress.html"><span class="nav-icon">📈</span> Progress</a>
+    <a class="nav-item" href="announcements.html"><span class="nav-icon">📣</span> Announcements</a>
+    <a class="nav-item" href="people.html"><span class="nav-icon">👥</span> People</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Account</div>
+    <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+    <a class="nav-item" href="settings.html"><span class="nav-icon">⚙</span> Settings</a>
+    <a class="nav-item" href="/auth/logout"><span class="nav-icon">⏻</span> Sign Out</a>
+  </nav>
+  <main class="main">
+    <div class="page-header">
+      <h1>Grades</h1>
+      <p>Your academic performance across all subjects</p>
+    </div>
+    <div class="card mb-2">
+      <div class="card-title"><span class="ct-icon">📊</span> Subject Grades</div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Subject</th>
+            <th>Course</th>
+            <th>Grade</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="gradesBody">
+          <tr><td colspan="4" class="text-muted text-xs">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="ct-icon">📈</span> Grade Average</div>
+      <div class="flex items-center gap-2">
+        <div style="font-size:2.5rem;font-weight:700;color:var(--text)" id="avgGrade">—</div>
+        <div class="text-xs text-muted">Overall Average</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+async function init() {
+  const meRes = await fetch('/api/me');
+  if (!meRes.ok) { location.href='/'; return; }
+  const user = await meRes.json();
+  const name = user.name||'';
+  document.getElementById('topbarName').textContent = name;
+  document.getElementById('topbarInitials').textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  if (user.profilePicture) document.getElementById('topbarAvatar').innerHTML=`<img src="${user.profilePicture}" alt="${name}">`;
+
+  const grades = user.grades||[];
+  const body = document.getElementById('gradesBody');
+  if (!grades.length) { body.innerHTML='<tr><td colspan="4" class="text-muted text-xs">No grades recorded yet.</td></tr>'; return; }
+
+  // Fetch course names
+  const courseCache = {};
+  for (const g of grades) {
+    if (g.course && !courseCache[g.course]) {
+      const r = await fetch(`/api/course/${g.course}`);
+      if (r.ok) courseCache[g.course] = await r.json();
+    }
+  }
+
+  const nums = grades.map(g=>parseFloat(g.grade)||0);
+  const avg = nums.reduce((s,v)=>s+v,0)/nums.length;
+  document.getElementById('avgGrade').textContent = avg.toFixed(1)+'%';
+
+  body.innerHTML = grades.map(g=>{
+    const pct = parseFloat(g.grade)||0;
+    const cls = pct>=90?'badge-green':pct>=75?'badge-yellow':'badge-red';
+    const label = pct>=90?'Excellent':pct>=75?'Passing':'Needs Improvement';
+    const courseName = courseCache[g.course]?.name || '—';
+    return `<tr>
+      <td><b>${g.subject}</b></td>
+      <td>${courseName}</td>
+      <td><b style="font-size:1rem">${g.grade}%</b></td>
+      <td><span class="badge ${cls}">${label}</span></td>
+    </tr>`;
+  }).join('');
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard — MII VLE</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="badge">☪</span> MII VLE
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-actions">
+      <span class="topbar-name" id="topbarName">Loading…</span>
+      <div class="topbar-avatar" id="topbarAvatar" onclick="location.href='profile.html'">
+        <span id="topbarInitials">?</span>
+      </div>
+      <button class="icon-btn" title="Logout" onclick="location.href='/auth/logout'">⏻</button>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="nav-section-label">Main</div>
+    <a class="nav-item active" href="student-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
+    <a class="nav-item" href="courses.html"><span class="nav-icon">📚</span> My Courses</a>
+    <a class="nav-item" href="assignments.html"><span class="nav-icon">📝</span> Assignments</a>
+    <a class="nav-item" href="calendar.html"><span class="nav-icon">📅</span> Calendar</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Learning</div>
+    <a class="nav-item" href="grades.html"><span class="nav-icon">📊</span> Grades</a>
+    <a class="nav-item" href="progress.html"><span class="nav-icon">📈</span> Progress</a>
+    <a class="nav-item" href="announcements.html"><span class="nav-icon">📣</span> Announcements</a>
+    <a class="nav-item" href="people.html"><span class="nav-icon">👥</span> People</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Account</div>
+    <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+    <a class="nav-item" href="settings.html"><span class="nav-icon">⚙</span> Settings</a>
+    <a class="nav-item" href="/auth/logout"><span class="nav-icon">⏻</span> Sign Out</a>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="page-header">
+      <h1 id="greeting">Good day</h1>
+      <p id="greetingDate"></p>
+    </div>
+
+    <!-- Stats row -->
+    <div class="grid-4 mb-2">
+      <div class="stat-card">
+        <div class="stat-label">Enrolled Courses</div>
+        <div class="stat-value" id="statCourses">—</div>
+        <div class="stat-sub">Active this term</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pending Assignments</div>
+        <div class="stat-value" id="statAssignments">—</div>
+        <div class="stat-sub">Due this week</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg. Grade</div>
+        <div class="stat-value" id="statGrade">—</div>
+        <div class="stat-sub">Across all subjects</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Overall Progress</div>
+        <div class="stat-value" id="statProgress">—</div>
+        <div class="stat-bar"><div class="stat-bar-fill" id="progressBar" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="grid-2 mb-2">
+      <!-- Upcoming Assignments -->
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">📝</span> Upcoming Assignments</div>
+        <div id="assignmentList"><div class="text-muted text-xs">Loading…</div></div>
+        <a href="assignments.html" class="btn btn-ghost btn-sm mt-1">View all</a>
+      </div>
+
+      <!-- Announcements -->
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">📣</span> Announcements</div>
+        <div id="announcementList"><div class="text-muted text-xs">Loading…</div></div>
+        <a href="announcements.html" class="btn btn-ghost btn-sm mt-1">View all</a>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- My Courses -->
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">📚</span> My Courses</div>
+        <div class="grid-2" id="courseGrid" style="gap:0.6rem;margin-top:0.25rem;"></div>
+        <a href="courses.html" class="btn btn-ghost btn-sm mt-1">View all</a>
+      </div>
+
+      <!-- Progress Snapshot -->
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">📈</span> Progress Snapshot</div>
+        <div style="margin-top:0.25rem;">
+          <div class="text-xs text-muted font-bold mb-1" style="text-transform:uppercase;letter-spacing:0.08em">Islamic Studies</div>
+          <div id="islamicProgress"></div>
+          <div class="text-xs text-muted font-bold mb-1 mt-2" style="text-transform:uppercase;letter-spacing:0.08em">Academic</div>
+          <div id="academicProgress"></div>
+        </div>
+        <a href="progress.html" class="btn btn-ghost btn-sm mt-1">Full progress</a>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+let currentUser = null;
+
+async function init() {
+  const res = await fetch('/api/me');
+  if (!res.ok) { location.href = '/'; return; }
+  currentUser = await res.json();
+
+  const name = currentUser.name || 'Student';
+  const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('topbarName').textContent = name;
+  document.getElementById('topbarInitials').textContent = initials;
+  if (currentUser.profilePicture) {
+    document.getElementById('topbarAvatar').innerHTML = `<img src="${currentUser.profilePicture}" alt="${name}">`;
+  }
+
+  const hour = new Date().getHours();
+  const tod = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
+  document.getElementById('greeting').textContent = `Good ${tod}, ${name.split(' ')[0]}`;
+  document.getElementById('greetingDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+  loadStats();
+  loadAssignments();
+  loadAnnouncements();
+  loadCourses();
+  loadProgress();
+}
+
+async function loadStats() {
+  const courses = currentUser.enrolledCourses || [];
+  document.getElementById('statCourses').textContent = courses.length;
+
+  // grades avg
+  const grades = currentUser.grades || [];
+  if (grades.length) {
+    const avg = grades.reduce((s,g) => s + parseFloat(g.grade||0),0)/grades.length;
+    document.getElementById('statGrade').textContent = avg.toFixed(1)+'%';
+  } else { document.getElementById('statGrade').textContent = '—'; }
+
+  // progress avg
+  const p = currentUser.progress;
+  if (p) {
+    const vals = [...Object.values(p.islamic||{}), ...Object.values(p.academic||{})].filter(v=>v!=null);
+    if (vals.length) {
+      const avg = vals.reduce((s,v)=>s+v,0)/vals.length;
+      document.getElementById('statProgress').textContent = avg.toFixed(0)+'%';
+      document.getElementById('progressBar').style.width = avg+'%';
+    }
+  }
+
+  // pending assignments
+  try {
+    const pending = [];
+    for (const cid of (currentUser.enrolledCourses||[])) {
+      const r = await fetch(`/api/course/${cid}/assignments`);
+      if (r.ok) {
+        const arr = await r.json();
+        arr.forEach(a => { if (new Date(a.dueDate) > new Date()) pending.push(a); });
+      }
+    }
+    document.getElementById('statAssignments').textContent = pending.length;
+  } catch(e) { document.getElementById('statAssignments').textContent = '?'; }
+}
+
+async function loadAssignments() {
+  const el = document.getElementById('assignmentList');
+  const all = [];
+  for (const cid of (currentUser.enrolledCourses||[])) {
+    const r = await fetch(`/api/course/${cid}/assignments`);
+    if (r.ok) { const arr = await r.json(); arr.forEach(a=>all.push(a)); }
+  }
+  all.sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate));
+  if (!all.length) { el.innerHTML='<div class="text-muted text-xs">No upcoming assignments.</div>'; return; }
+  el.innerHTML = all.slice(0,4).map(a => {
+    const due = new Date(a.dueDate);
+    const overdue = due < new Date();
+    const dueTxt = due.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    return `<div class="assignment-item">
+      <div class="asgn-dot" style="${overdue?'background:#b83232':''}"></div>
+      <div>
+        <div class="asgn-title">${a.title}</div>
+        <div class="asgn-meta ${overdue?'asgn-overdue':'asgn-due'}">Due ${dueTxt}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function loadAnnouncements() {
+  const el = document.getElementById('announcementList');
+  const r = await fetch('/api/announcements');
+  if (!r.ok) { el.innerHTML='<div class="text-muted text-xs">Failed to load.</div>'; return; }
+  const arr = await r.json();
+  if (!arr.length) { el.innerHTML='<div class="text-muted text-xs">No announcements yet.</div>'; return; }
+  el.innerHTML = arr.slice(0,3).map(a=>`
+    <div class="announcement-item">
+      <div class="ann-title">${a.title}</div>
+      <div class="ann-meta">${a.author?.name||'MII'} · ${new Date(a.createdAt).toLocaleDateString()}</div>
+      <div class="ann-body">${a.content.slice(0,120)}${a.content.length>120?'…':''}</div>
+    </div>`).join('');
+}
+
+async function loadCourses() {
+  const el = document.getElementById('courseGrid');
+  const ids = currentUser.enrolledCourses||[];
+  if (!ids.length) { el.innerHTML='<div class="text-muted text-xs">No courses enrolled.</div>'; return; }
+  const courses = await Promise.all(ids.map(id=>fetch(`/api/course/${id}`).then(r=>r.json())));
+  el.innerHTML = courses.map(c=>`
+    <a href="course.html?id=${c._id}" class="course-card" style="text-decoration:none">
+      <div class="course-card-subject">${c.subject}</div>
+      <div class="course-card-name">${c.name}</div>
+      <div class="course-card-teacher">${c.teacher?.name||''}</div>
+    </a>`).join('');
+}
+
+function loadProgress() {
+  const p = currentUser.progress;
+  if (!p) return;
+  const islamicEl = document.getElementById('islamicProgress');
+  const academicEl = document.getElementById('academicProgress');
+  const labels = { islamic:{quran:'Qur\'an',hadith:'Hadith',fiqh:'Fiqh',arabic:'Arabic'}, academic:{mathematics:'Mathematics',english:'English',science:'Science'} };
+  islamicEl.innerHTML = Object.entries(p.islamic||{}).map(([k,v])=>v!=null?`
+    <div class="progress-row">
+      <div class="progress-label"><span>${labels.islamic[k]||k}</span><span>${v}%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${v}%"></div></div>
+    </div>`:''
+  ).join('');
+  academicEl.innerHTML = Object.entries(p.academic||{}).map(([k,v])=>v!=null?`
+    <div class="progress-row">
+      <div class="progress-label"><span>${labels.academic[k]||k}</span><span>${v}%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${v}%"></div></div>
+    </div>`:''
+  ).join('');
+}
+
+init();
+</script>
+</body>
+</html>

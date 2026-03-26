@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings — MII VLE</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<div class="app-layout">
+  <header class="topbar">
+    <div class="topbar-brand"><span class="badge">☪</span> MII VLE</div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-actions">
+      <span class="topbar-name" id="topbarName"></span>
+      <div class="topbar-avatar" id="topbarAvatar" onclick="location.href='profile.html'"><span id="topbarInitials">?</span></div>
+      <button class="icon-btn" onclick="location.href='/auth/logout'">⏻</button>
+    </div>
+  </header>
+  <nav class="sidebar">
+    <div class="nav-section-label">Main</div>
+    <a class="nav-item" href="student-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
+    <a class="nav-item" href="courses.html"><span class="nav-icon">📚</span> My Courses</a>
+    <a class="nav-item" href="assignments.html"><span class="nav-icon">📝</span> Assignments</a>
+    <a class="nav-item" href="calendar.html"><span class="nav-icon">📅</span> Calendar</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Learning</div>
+    <a class="nav-item" href="grades.html"><span class="nav-icon">📊</span> Grades</a>
+    <a class="nav-item" href="progress.html"><span class="nav-icon">📈</span> Progress</a>
+    <a class="nav-item" href="announcements.html"><span class="nav-icon">📣</span> Announcements</a>
+    <a class="nav-item" href="people.html"><span class="nav-icon">👥</span> People</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Account</div>
+    <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+    <a class="nav-item active" href="settings.html"><span class="nav-icon">⚙</span> Settings</a>
+    <a class="nav-item" href="/auth/logout"><span class="nav-icon">⏻</span> Sign Out</a>
+  </nav>
+  <main class="main">
+    <div class="page-header">
+      <h1>Settings</h1>
+      <p>Customize your learning experience</p>
+    </div>
+    <div style="max-width:480px">
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">🌐</span> Language Preference</div>
+        <p class="text-sm text-muted mb-2">Choose the display language for the VLE interface.</p>
+        <div class="form-group">
+          <label class="form-label">Language</label>
+          <select class="form-input" id="languageSelect">
+            <option value="English">English</option>
+            <option value="Arabic">Arabic (العربية)</option>
+            <option value="Filipino">Filipino (Wikang Filipino)</option>
+          </select>
+        </div>
+        <div id="langStatus" class="text-xs mb-2" style="min-height:1.2rem"></div>
+        <button class="btn btn-primary" onclick="saveLanguage()">Save Language</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+let currentUser = null;
+
+async function init() {
+  const res = await fetch('/api/me');
+  if (!res.ok) { location.href='/'; return; }
+  currentUser = await res.json();
+  const name = currentUser.name||'';
+  const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('topbarName').textContent = name;
+  document.getElementById('topbarInitials').textContent = initials;
+  if (currentUser.profilePicture) document.getElementById('topbarAvatar').innerHTML = `<img src="${currentUser.profilePicture}" alt="${name}">`;
+  if (currentUser.language) document.getElementById('languageSelect').value = currentUser.language;
+}
+
+async function saveLanguage() {
+  const status = document.getElementById('langStatus');
+  const lang = document.getElementById('languageSelect').value;
+  const res = await fetch(`/api/user/${currentUser._id}`, {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ language: lang }),
+  });
+  if (res.ok) {
+    status.textContent = '✓ Language saved';
+    status.style.color = '#7ec87e';
+  } else {
+    status.textContent = '✗ Failed to save';
+    status.style.color = '#e08080';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

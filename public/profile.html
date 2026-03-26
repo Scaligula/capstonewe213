@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Profile — MII VLE</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<div class="app-layout">
+  <header class="topbar">
+    <div class="topbar-brand"><span class="badge">☪</span> MII VLE</div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-actions">
+      <span class="topbar-name" id="topbarName"></span>
+      <div class="topbar-avatar" id="topbarAvatar"><span id="topbarInitials">?</span></div>
+      <button class="icon-btn" onclick="location.href='/auth/logout'">⏻</button>
+    </div>
+  </header>
+  <nav class="sidebar">
+    <div class="nav-section-label">Main</div>
+    <a class="nav-item" href="student-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
+    <a class="nav-item" href="courses.html"><span class="nav-icon">📚</span> My Courses</a>
+    <a class="nav-item" href="assignments.html"><span class="nav-icon">📝</span> Assignments</a>
+    <a class="nav-item" href="calendar.html"><span class="nav-icon">📅</span> Calendar</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Learning</div>
+    <a class="nav-item" href="grades.html"><span class="nav-icon">📊</span> Grades</a>
+    <a class="nav-item" href="progress.html"><span class="nav-icon">📈</span> Progress</a>
+    <a class="nav-item" href="announcements.html"><span class="nav-icon">📣</span> Announcements</a>
+    <a class="nav-item" href="people.html"><span class="nav-icon">👥</span> People</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Account</div>
+    <a class="nav-item active" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+    <a class="nav-item" href="settings.html"><span class="nav-icon">⚙</span> Settings</a>
+    <a class="nav-item" href="/auth/logout"><span class="nav-icon">⏻</span> Sign Out</a>
+  </nav>
+  <main class="main">
+    <div class="page-header">
+      <h1>My Profile</h1>
+      <p>Manage your personal information</p>
+    </div>
+
+    <div style="max-width:560px">
+      <div class="card mb-2">
+        <!-- Avatar section -->
+        <div class="card-title"><span class="ct-icon">👤</span> Profile Picture</div>
+        <div class="flex items-center gap-2 mb-2">
+          <div class="avatar avatar-lg" id="profileAvatarDisplay"><span id="profileInitials">?</span></div>
+          <div>
+            <div class="text-sm font-bold" id="profileNameDisplay">—</div>
+            <div class="text-xs text-muted" id="profileEmailDisplay">—</div>
+            <div style="margin-top:0.5rem">
+              <label class="btn btn-ghost btn-sm" style="cursor:pointer">
+                Upload Photo <input type="file" id="avatarInput" accept="image/*" style="display:none">
+              </label>
+            </div>
+          </div>
+        </div>
+        <div id="uploadStatus" class="text-xs text-muted"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">✏️</span> Edit Information</div>
+        <div id="saveStatus" class="text-xs mb-2" style="min-height:1.2rem"></div>
+
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input class="form-input" id="nameInput" type="text" placeholder="Your full name" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input class="form-input" id="emailInput" type="email" disabled style="opacity:0.5;cursor:not-allowed" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Birthday</label>
+          <input class="form-input" id="birthdayInput" type="date" />
+        </div>
+        <button class="btn btn-primary" id="saveBtn" onclick="saveProfile()">Save Changes</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+let currentUser = null;
+
+async function init() {
+  const res = await fetch('/api/me');
+  if (!res.ok) { location.href='/'; return; }
+  currentUser = await res.json();
+  renderUser();
+}
+
+function renderUser() {
+  const name = currentUser.name||'';
+  const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('topbarName').textContent = name;
+  document.getElementById('topbarInitials').textContent = initials;
+  document.getElementById('profileInitials').textContent = initials;
+  document.getElementById('profileNameDisplay').textContent = name;
+  document.getElementById('profileEmailDisplay').textContent = currentUser.email||'';
+  document.getElementById('nameInput').value = name;
+  document.getElementById('emailInput').value = currentUser.email||'';
+  if (currentUser.birthday) document.getElementById('birthdayInput').value = currentUser.birthday.slice(0,10);
+  if (currentUser.profilePicture) {
+    document.getElementById('profileAvatarDisplay').innerHTML = `<img src="${currentUser.profilePicture}" alt="${name}">`;
+    document.getElementById('topbarAvatar').innerHTML = `<img src="${currentUser.profilePicture}" alt="${name}">`;
+  }
+}
+
+async function saveProfile() {
+  const btn = document.getElementById('saveBtn');
+  const status = document.getElementById('saveStatus');
+  btn.disabled = true;
+  status.textContent = 'Saving…';
+  status.style.color = 'var(--text-muted)';
+
+  const updates = {
+    name: document.getElementById('nameInput').value.trim(),
+    birthday: document.getElementById('birthdayInput').value || undefined,
+  };
+
+  const res = await fetch(`/api/user/${currentUser._id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+
+  btn.disabled = false;
+  if (res.ok) {
+    currentUser = await res.json();
+    renderUser();
+    status.textContent = '✓ Changes saved';
+    status.style.color = '#7ec87e';
+  } else {
+    status.textContent = '✗ Failed to save';
+    status.style.color = '#e08080';
+  }
+}
+
+// Avatar upload — converts to base64 data URL stored in profilePicture
+document.getElementById('avatarInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) {
+    document.getElementById('uploadStatus').textContent = 'Image must be under 2 MB';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const dataUrl = ev.target.result;
+    const res = await fetch(`/api/user/${currentUser._id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profilePicture: dataUrl }),
+    });
+    if (res.ok) {
+      currentUser = await res.json();
+      renderUser();
+      document.getElementById('uploadStatus').textContent = '✓ Picture updated';
+    } else {
+      document.getElementById('uploadStatus').textContent = '✗ Upload failed';
+    }
+  };
+  reader.readAsDataURL(file);
+});
+
+init();
+</script>
+</body>
+</html>

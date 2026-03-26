@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Progress — MII VLE</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<div class="app-layout">
+  <header class="topbar">
+    <div class="topbar-brand"><span class="badge">☪</span> MII VLE</div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-actions">
+      <span class="topbar-name" id="topbarName"></span>
+      <div class="topbar-avatar" id="topbarAvatar" onclick="location.href='profile.html'"><span id="topbarInitials">?</span></div>
+      <button class="icon-btn" onclick="location.href='/auth/logout'">⏻</button>
+    </div>
+  </header>
+  <nav class="sidebar">
+    <div class="nav-section-label">Main</div>
+    <a class="nav-item" href="student-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
+    <a class="nav-item" href="courses.html"><span class="nav-icon">📚</span> My Courses</a>
+    <a class="nav-item" href="assignments.html"><span class="nav-icon">📝</span> Assignments</a>
+    <a class="nav-item" href="calendar.html"><span class="nav-icon">📅</span> Calendar</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Learning</div>
+    <a class="nav-item" href="grades.html"><span class="nav-icon">📊</span> Grades</a>
+    <a class="nav-item active" href="progress.html"><span class="nav-icon">📈</span> Progress</a>
+    <a class="nav-item" href="announcements.html"><span class="nav-icon">📣</span> Announcements</a>
+    <a class="nav-item" href="people.html"><span class="nav-icon">👥</span> People</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Account</div>
+    <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+    <a class="nav-item" href="settings.html"><span class="nav-icon">⚙</span> Settings</a>
+    <a class="nav-item" href="/auth/logout"><span class="nav-icon">⏻</span> Sign Out</a>
+  </nav>
+  <main class="main">
+    <div class="page-header">
+      <h1>Learning Progress</h1>
+      <p>Track your growth in Islamic studies and academic subjects</p>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">☪</span> Islamic Studies</div>
+        <div id="islamicProgress"><div class="text-muted text-xs">Loading…</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">📐</span> Academic Subjects</div>
+        <div id="academicProgress"><div class="text-muted text-xs">Loading…</div></div>
+      </div>
+    </div>
+
+    <div class="card mt-2">
+      <div class="card-title"><span class="ct-icon">⭐</span> Overall Summary</div>
+      <div class="grid-4 mt-1" id="summaryGrid"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+const LABELS = {
+  islamic:  { quran:"Qur'an Recitation", hadith:"Hadith Studies", fiqh:"Fiqh (Islamic Law)", arabic:"Arabic Language" },
+  academic: { mathematics:"Mathematics", english:"English Language", science:"Science" }
+};
+
+function renderSection(data, labels, elId) {
+  const el = document.getElementById(elId);
+  if (!data) { el.innerHTML='<div class="text-muted text-xs">No data available.</div>'; return; }
+  el.innerHTML = Object.entries(data).map(([k,v])=>v!=null?`
+    <div class="progress-row">
+      <div class="progress-label"><span>${labels[k]||k}</span><span>${v}%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${v}%;${v<50?'background:#b88c00':''}"></div></div>
+      <div class="text-xs text-muted mt-1">${v>=80?'Excellent':v>=60?'Good':v>=40?'Developing':'Needs Focus'}</div>
+    </div>`:'').join('');
+}
+
+function renderSummary(p) {
+  const all = [...Object.entries(p.islamic||{}), ...Object.entries(p.academic||{})].filter(([,v])=>v!=null);
+  const el = document.getElementById('summaryGrid');
+  el.innerHTML = all.map(([k,v])=>{
+    const label = LABELS.islamic[k]||LABELS.academic[k]||k;
+    return `<div class="stat-card">
+      <div class="stat-label">${label}</div>
+      <div class="stat-value" style="font-size:1.4rem">${v}%</div>
+      <div class="stat-bar"><div class="stat-bar-fill" style="width:${v}%;${v<50?'background:#b88c00':''}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+async function init() {
+  const res = await fetch('/api/me');
+  if (!res.ok) { location.href='/'; return; }
+  const user = await res.json();
+  const name = user.name||'';
+  document.getElementById('topbarName').textContent = name;
+  document.getElementById('topbarInitials').textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  if (user.profilePicture) document.getElementById('topbarAvatar').innerHTML=`<img src="${user.profilePicture}" alt="${name}">`;
+
+  const p = user.progress||{};
+  renderSection(p.islamic, LABELS.islamic, 'islamicProgress');
+  renderSection(p.academic, LABELS.academic, 'academicProgress');
+  renderSummary(p);
+}
+init();
+</script>
+</body>
+</html>

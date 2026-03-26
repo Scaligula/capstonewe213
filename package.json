@@ -1,0 +1,19 @@
+{
+  "name": "mii-vle",
+  "version": "1.0.0",
+  "description": "Meba Islamic Institute VLE minimal Bootstrap + JS frontend/backend app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node seed.js"
+  },
+  "dependencies": {
+    "connect-mongo": "^5.1.0",
+    "dotenv": "^17.3.1",
+    "express": "^4.18.2",
+    "express-session": "^1.19.0",
+    "mongoose": "^9.3.3",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0"
+  }
+}
