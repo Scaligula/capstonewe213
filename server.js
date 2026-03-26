@@ -353,7 +353,12 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`MADRASAH VLE listening on http://localhost:${port}`);
-});
+// Export for Vercel serverless; also listen locally when run directly.
+if (require.main === module) {
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => {
+    console.log(`MADRASAH VLE listening on http://localhost:${port}`);
+  });
+}
+
+module.exports = app;
