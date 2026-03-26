@@ -41,6 +41,16 @@ passport.deserializeUser((id, done) => {
   User.findById(id).then(user => done(null, user)).catch(done);
 });
 
+// Users who can log in as multiple roles. Key = email, value = [roles] (first is default).
+const DUAL_ROLE_USERS = {
+  'rodriguezdale364@gmail.com': ['student', 'admin'],
+};
+
+// External (non-mii.edu.ph) emails allowed as student-only accounts.
+const ALLOWED_STUDENT_EMAILS = [
+  'scal42069@gmail.com',
+];
+
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -48,19 +58,31 @@ passport.use(new GoogleStrategy({
 }, async (accessToken, refreshToken, profile, done) => {
   try {
     const email = profile.emails?.[0]?.value;
-    const ALLOWED_TEST = ['rodriguezdale364@gmail.com'];
-    if (!email || (!email.endsWith('@mii.edu.ph') && !ALLOWED_TEST.includes(email))) {
+    const allowedExternal = [...Object.keys(DUAL_ROLE_USERS), ...ALLOWED_STUDENT_EMAILS];
+    if (!email || (!email.endsWith('@mii.edu.ph') && !allowedExternal.includes(email))) {
       return done(null, false, { message: 'Email domain not allowed' });
     }
     let user = await User.findOne({ email });
+    const dualRoles = DUAL_ROLE_USERS[email];
     if (!user) {
       user = new User({
         email,
-        role: 'student',
+        role: dualRoles ? dualRoles[0] : 'student',
+        roles: dualRoles || [],
         name: profile.displayName || 'Unknown',
         profilePicture: profile.photos?.[0]?.value,
+        permissions: dualRoles?.includes('admin')
+          ? ['manage_users', 'manage_courses', 'manage_announcements']
+          : [],
       });
       await user.save();
+    } else {
+      // Sync dual-role data if needed
+      if (dualRoles && (!user.roles || user.roles.length < 2)) {
+        user.roles = dualRoles;
+        user.permissions = ['manage_users', 'manage_courses', 'manage_announcements'];
+        await user.save();
+      }
     }
     return done(null, user);
   } catch (err) {
@@ -75,6 +97,12 @@ app.get('/auth/google', passport.authenticate('google', {
 app.get('/auth/google/callback', passport.authenticate('google', {
   failureRedirect: '/?login=failed'
 }), (req, res) => {
+  const userRoles = req.user.roles || [];
+  if (userRoles.length > 1) {
+    // Multi-role user: clear any cached role and let them choose
+    req.session.activeRole = null;
+    return res.redirect('/role-select.html');
+  }
   const role = req.user.role;
   if (role === 'admin') return res.redirect('/admin-dashboard.html');
   if (role === 'staff') return res.redirect('/staff-dashboard.html');
@@ -83,12 +111,28 @@ app.get('/auth/google/callback', passport.authenticate('google', {
 });
 
 app.get('/auth/logout', (req, res, next) => {
+  req.session.activeRole = null;
   req.logout(err => err ? next(err) : res.redirect('/'));
+});
+
+// Set the active role for the current session (dual-role users only)
+app.post('/api/session/role', (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not logged in' });
+  const { role } = req.body;
+  const available = req.user.roles?.length ? req.user.roles : [req.user.role];
+  if (!available.includes(role)) return res.status(403).json({ error: 'Role not available for this account' });
+  req.session.activeRole = role;
+  res.json({ role });
 });
 
 app.get('/api/me', (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not logged in' });
-  res.json(req.user);
+  const user = req.user.toObject ? req.user.toObject() : { ...req.user };
+  const available = user.roles?.length ? user.roles : [user.role];
+  if (req.session.activeRole && available.includes(req.session.activeRole)) {
+    user.role = req.session.activeRole;
+  }
+  res.json(user);
 });
 
 app.get('/api/user/:id', async (req, res) => {
@@ -150,6 +194,154 @@ app.get('/api/announcements', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ===== Admin Middleware =====
+function requireAdmin(req, res, next) {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
+  const available = req.user.roles?.length ? req.user.roles : [req.user.role];
+  const activeRole = req.session.activeRole && available.includes(req.session.activeRole)
+    ? req.session.activeRole
+    : req.user.role;
+  if (activeRole !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  next();
+}
+
+// ===== Admin: Users =====
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+  try {
+    const users = await User.find({}).populate('enrolledCourses', 'name subject').lean();
+    res.json(users);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/users', requireAdmin, async (req, res) => {
+  try {
+    const { email, name, role, language } = req.body;
+    if (!email || !name || !role) return res.status(400).json({ error: 'email, name, and role are required' });
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) return res.status(400).json({ error: 'Invalid email format' });
+    const normalEmail = email.toLowerCase().trim();
+    const exists = await User.findOne({ email: normalEmail });
+    if (exists) return res.status(409).json({ error: 'Email already registered' });
+    const user = await User.create({
+      email: normalEmail,
+      name: name.trim(),
+      role,
+      language: language || 'English',
+      permissions: role === 'admin' ? ['manage_users', 'manage_courses', 'manage_announcements'] : [],
+    });
+    res.status(201).json(user);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const allowed = ['name', 'role', 'permissions', 'enrolledCourses', 'language'];
+    const update = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) update[key] = req.body[key];
+    }
+    if (update.role === 'admin' && !update.permissions) {
+      update.permissions = ['manage_users', 'manage_courses', 'manage_announcements'];
+    }
+    const user = await User.findByIdAndUpdate(req.params.id, update, { new: true })
+      .populate('enrolledCourses', 'name subject');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
+  try {
+    if (req.params.id === String(req.user._id)) return res.status(400).json({ error: 'Cannot delete your own account' });
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/users/:id/reset', requireAdmin, async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.params.id, {
+      $unset: { grades: '', progress: '' },
+      $set: { enrolledCourses: [] },
+    }, { new: true });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ===== Admin: Courses =====
+app.get('/api/admin/courses', requireAdmin, async (req, res) => {
+  try {
+    const Course = require('./models/Course');
+    const courses = await Course.find({}).populate('teacher', 'name').lean();
+    res.json(courses);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/admin/courses/:id', requireAdmin, async (req, res) => {
+  try {
+    const Course = require('./models/Course');
+    const allowed = ['teacher', 'students'];
+    const update = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) update[key] = req.body[key];
+    }
+    const course = await Course.findByIdAndUpdate(req.params.id, update, { new: true })
+      .populate('teacher', 'name');
+    if (!course) return res.status(404).json({ error: 'Course not found' });
+    res.json(course);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ===== Admin: Analytics =====
+app.get('/api/admin/analytics', requireAdmin, async (req, res) => {
+  try {
+    const Course = require('./models/Course');
+    const [students, faculty, courses] = await Promise.all([
+      User.find({ role: 'student' }).select('name grades progress enrolledCourses').lean(),
+      User.find({ role: 'staff' }).select('name email').lean(),
+      Course.find({}).select('name subject students').lean(),
+    ]);
+    const subjectGrades = {};
+    students.forEach(s => {
+      (s.grades || []).forEach(g => {
+        if (!subjectGrades[g.subject]) subjectGrades[g.subject] = [];
+        subjectGrades[g.subject].push(parseFloat(g.grade || 0));
+      });
+    });
+    const subjectAverages = {};
+    for (const [subject, grades] of Object.entries(subjectGrades)) {
+      subjectAverages[subject] = +(grades.reduce((a, b) => a + b, 0) / grades.length).toFixed(1);
+    }
+    const allGrades = students.flatMap(s => (s.grades || []).map(g => parseFloat(g.grade || 0)));
+    const classAverage = allGrades.length
+      ? +(allGrades.reduce((a, b) => a + b, 0) / allGrades.length).toFixed(1)
+      : 0;
+    const studentSummaries = students.map(s => {
+      const grades = s.grades || [];
+      const gradeAvg = grades.length
+        ? +(grades.reduce((sum, g) => sum + parseFloat(g.grade || 0), 0) / grades.length).toFixed(1)
+        : null;
+      const progressVals = s.progress
+        ? [...Object.values(s.progress.islamic || {}), ...Object.values(s.progress.academic || {})].filter(v => v != null)
+        : [];
+      const progressAvg = progressVals.length
+        ? +(progressVals.reduce((a, b) => a + b, 0) / progressVals.length).toFixed(0)
+        : null;
+      return { _id: s._id, name: s.name, gradeAvg, progressAvg, coursesCount: (s.enrolledCourses || []).length };
+    });
+    res.json({
+      totalStudents: students.length,
+      totalFaculty: faculty.length,
+      totalCourses: courses.length,
+      classAverage,
+      subjectAverages,
+      students: studentSummaries,
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // Only redirect unknown non-file, non-API routes to index.html

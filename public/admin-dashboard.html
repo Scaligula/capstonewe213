@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Dashboard — MII VLE</title>
+  <link rel="stylesheet" href="app.css" />
+  <style>
+    .chart-bar-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.7rem; }
+    .chart-bar-label { font-size: 0.78rem; color: var(--text-muted); width: 110px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chart-bar-track { flex: 1; height: 8px; background: var(--surface3); border-radius: 4px; overflow: hidden; }
+    .chart-bar-fill { height: 100%; background: var(--green); border-radius: 4px; transition: width 0.6s ease; }
+    .chart-bar-fill.fill-yellow { background: #b88c00; }
+    .chart-bar-fill.fill-blue { background: #3264b4; }
+    .chart-bar-fill.fill-red { background: #b83232; }
+    .chart-bar-val { font-size: 0.76rem; font-weight: 700; color: var(--text); width: 36px; text-align: right; flex-shrink: 0; }
+    .perf-grade { font-size: 0.82rem; font-weight: 700; }
+    .grade-high { color: #7ec87e; }
+    .grade-mid  { color: #c8b030; }
+    .grade-low  { color: #e08080; }
+    .quick-action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+    .quick-action {
+      display: flex; flex-direction: column; gap: 0.25rem;
+      padding: 0.85rem 1rem;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; cursor: pointer; transition: all 0.15s;
+      text-decoration: none;
+    }
+    .quick-action:hover { border-color: var(--green-border); background: var(--surface3); }
+    .qa-icon { font-size: 1.2rem; }
+    .qa-label { font-size: 0.8rem; font-weight: 700; color: var(--text); }
+    .qa-sub   { font-size: 0.7rem; color: var(--text-muted); }
+    .admin-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.55rem;
+      background: rgba(50,100,180,0.13); color: #80aaee;
+      border: 1px solid rgba(50,100,180,0.25); border-radius: 20px;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .trend-up   { color: #7ec87e; font-size: 0.72rem; }
+    .trend-down { color: #e08080; font-size: 0.72rem; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="badge">☪</span> MII VLE
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-actions">
+      <span class="admin-badge">⚙ Admin</span>
+      <span class="topbar-name" id="topbarName">Loading…</span>
+      <div class="topbar-avatar" id="topbarAvatar" onclick="location.href='profile.html'">
+        <span id="topbarInitials">?</span>
+      </div>
+      <button class="icon-btn" title="Logout" onclick="location.href='/auth/logout'">⏻</button>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <div class="nav-section-label">Administration</div>
+    <a class="nav-item active" href="admin-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
+    <a class="nav-item" href="admin-users.html"><span class="nav-icon">👥</span> User Management</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Account</div>
+    <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+    <a class="nav-item" href="settings.html"><span class="nav-icon">⚙</span> Settings</a>
+    <a class="nav-item" href="/auth/logout"><span class="nav-icon">⏻</span> Sign Out</a>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="page-header">
+      <h1 id="greeting">Admin Dashboard</h1>
+      <p id="greetingDate"></p>
+    </div>
+
+    <!-- Stats row -->
+    <div class="grid-4 mb-2">
+      <div class="stat-card">
+        <div class="stat-label">Total Students</div>
+        <div class="stat-value" id="statStudents">—</div>
+        <div class="stat-sub">Enrolled learners</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Faculty Members</div>
+        <div class="stat-value" id="statFaculty">—</div>
+        <div class="stat-sub">Teaching staff</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active Courses</div>
+        <div class="stat-value" id="statCourses">—</div>
+        <div class="stat-sub">Running this term</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Class Average</div>
+        <div class="stat-value" id="statAvg">—</div>
+        <div class="stat-bar"><div class="stat-bar-fill" id="avgBar" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <!-- Performance & Subject Averages -->
+    <div class="grid-2 mb-2">
+      <!-- Student Performance -->
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">📊</span> Student Grade Averages</div>
+        <div id="studentBars"><div class="text-muted text-xs">Loading…</div></div>
+      </div>
+
+      <!-- Subject Averages -->
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">📚</span> Subject Averages</div>
+        <div id="subjectBars"><div class="text-muted text-xs">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- Performance Table & Quick Actions -->
+    <div class="grid-2">
+      <!-- Performance Table -->
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">📈</span> Student Performance Report</div>
+        <div style="overflow-x:auto;margin-top:0.25rem;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Courses</th>
+                <th>Grade Avg</th>
+                <th>Progress</th>
+              </tr>
+            </thead>
+            <tbody id="perfTableBody">
+              <tr><td colspan="4" class="text-muted text-xs">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <a href="admin-users.html" class="btn btn-ghost btn-sm mt-1">Manage Students</a>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">⚡</span> Quick Actions</div>
+        <div class="quick-action-grid mt-1">
+          <a href="admin-users.html?tab=accounts&action=create" class="quick-action">
+            <span class="qa-icon">➕</span>
+            <span class="qa-label">Create Account</span>
+            <span class="qa-sub">Add new user to system</span>
+          </a>
+          <a href="admin-users.html?tab=students" class="quick-action">
+            <span class="qa-icon">🎓</span>
+            <span class="qa-label">Manage Students</span>
+            <span class="qa-sub">Enroll, view, manage</span>
+          </a>
+          <a href="admin-users.html?tab=faculty" class="quick-action">
+            <span class="qa-icon">👨‍🏫</span>
+            <span class="qa-label">Manage Faculty</span>
+            <span class="qa-sub">Assign courses to staff</span>
+          </a>
+          <a href="admin-users.html?tab=accounts" class="quick-action">
+            <span class="qa-icon">🔑</span>
+            <span class="qa-label">Account Settings</span>
+            <span class="qa-sub">Roles, access, reset</span>
+          </a>
+        </div>
+
+        <div class="card-title mt-2" style="margin-bottom:0.5rem;"><span class="ct-icon">🕐</span> Progress Overview</div>
+        <div id="progressOverview"><div class="text-muted text-xs">Loading…</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function gradeColor(v) {
+  if (v === null || v === undefined) return '';
+  if (v >= 85) return 'grade-high';
+  if (v >= 70) return 'grade-mid';
+  return 'grade-low';
+}
+
+function barColor(v) {
+  if (v >= 85) return '';
+  if (v >= 70) return 'fill-yellow';
+  return 'fill-red';
+}
+
+async function init() {
+  const res = await fetch('/api/me');
+  if (!res.ok) { location.href = '/'; return; }
+  const me = await res.json();
+  if (me.role !== 'admin') { location.href = '/student-dashboard.html'; return; }
+
+  const name = me.name || 'Admin';
+  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  document.getElementById('topbarName').textContent = name;
+  document.getElementById('topbarInitials').textContent = initials;
+  if (me.profilePicture) {
+    document.getElementById('topbarAvatar').innerHTML = `<img src="${esc(me.profilePicture)}" alt="${esc(name)}">`;
+  }
+
+  const hour = new Date().getHours();
+  const tod = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
+  document.getElementById('greeting').textContent = `Good ${tod}, ${esc(name.split(' ')[0])}`;
+  document.getElementById('greetingDate').textContent = new Date().toLocaleDateString('en-US',
+    { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  // Show "Switch View" for dual-role users
+  if ((me.roles || []).length > 1) {
+    const sidebar = document.getElementById('sidebar');
+    const divider = document.createElement('div');
+    divider.className = 'nav-divider';
+    const label = document.createElement('div');
+    label.className = 'nav-section-label';
+    label.textContent = 'Switch View';
+    const link = document.createElement('a');
+    link.className = 'nav-item';
+    link.href = '/role-select.html';
+    link.innerHTML = '<span class="nav-icon">⇄</span> Switch to Student';
+    sidebar.insertBefore(divider, sidebar.lastElementChild.previousElementSibling.previousElementSibling);
+    sidebar.insertBefore(label, sidebar.lastElementChild.previousElementSibling.previousElementSibling);
+    sidebar.insertBefore(link, sidebar.lastElementChild.previousElementSibling.previousElementSibling);
+  }
+
+  loadAnalytics();
+}
+
+async function loadAnalytics() {
+  try {
+    const r = await fetch('/api/admin/analytics');
+    if (!r.ok) throw new Error('Failed');
+    const data = await r.json();
+
+    document.getElementById('statStudents').textContent = data.totalStudents;
+    document.getElementById('statFaculty').textContent = data.totalFaculty;
+    document.getElementById('statCourses').textContent = data.totalCourses;
+    document.getElementById('statAvg').textContent = data.classAverage + '%';
+    document.getElementById('avgBar').style.width = data.classAverage + '%';
+
+    // Student grade bars
+    const sbEl = document.getElementById('studentBars');
+    if (!data.students.length) {
+      sbEl.innerHTML = '<div class="text-muted text-xs">No student data.</div>';
+    } else {
+      sbEl.innerHTML = data.students.map(s => {
+        const val = s.gradeAvg ?? 0;
+        return `<div class="chart-bar-row">
+          <div class="chart-bar-label" title="${esc(s.name)}">${esc(s.name)}</div>
+          <div class="chart-bar-track"><div class="chart-bar-fill ${barColor(val)}" style="width:${val}%"></div></div>
+          <div class="chart-bar-val ${gradeColor(val)}">${val ? val + '%' : '—'}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // Subject average bars
+    const subEl = document.getElementById('subjectBars');
+    const subjectColors = { Quran: '', Hadith: '', Fiqh: 'fill-blue', Arabic: 'fill-blue', Mathematics: 'fill-yellow', English: 'fill-yellow', Science: 'fill-yellow' };
+    const entries = Object.entries(data.subjectAverages);
+    if (!entries.length) {
+      subEl.innerHTML = '<div class="text-muted text-xs">No grade data.</div>';
+    } else {
+      subEl.innerHTML = entries.map(([sub, avg]) => `
+        <div class="chart-bar-row">
+          <div class="chart-bar-label">${esc(sub)}</div>
+          <div class="chart-bar-track"><div class="chart-bar-fill ${subjectColors[sub] || ''}" style="width:${avg}%"></div></div>
+          <div class="chart-bar-val ${gradeColor(avg)}">${avg}%</div>
+        </div>`).join('');
+    }
+
+    // Performance table
+    const tbody = document.getElementById('perfTableBody');
+    if (!data.students.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-muted text-xs">No students found.</td></tr>';
+    } else {
+      tbody.innerHTML = data.students.map(s => `
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+              <div class="avatar" style="width:28px;height:28px;font-size:0.72rem;">${esc(s.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase())}</div>
+              <span>${esc(s.name)}</span>
+            </div>
+          </td>
+          <td>${s.coursesCount}</td>
+          <td><span class="perf-grade ${gradeColor(s.gradeAvg)}">${s.gradeAvg !== null ? s.gradeAvg + '%' : '—'}</span></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+              <div style="flex:1;height:4px;background:var(--surface3);border-radius:2px;overflow:hidden;">
+                <div style="height:100%;background:var(--green);width:${s.progressAvg ?? 0}%"></div>
+              </div>
+              <span class="text-xs" style="width:28px;text-align:right;">${s.progressAvg !== null ? s.progressAvg + '%' : '—'}</span>
+            </div>
+          </td>
+        </tr>`).join('');
+    }
+
+    // Progress overview (avg progress)
+    const poEl = document.getElementById('progressOverview');
+    const allProgress = data.students.filter(s => s.progressAvg !== null);
+    if (!allProgress.length) {
+      poEl.innerHTML = '<div class="text-muted text-xs">No progress data yet.</div>';
+    } else {
+      const overall = (allProgress.reduce((s, x) => s + x.progressAvg, 0) / allProgress.length).toFixed(0);
+      poEl.innerHTML = `
+        <div class="progress-row">
+          <div class="progress-label"><span>Overall Class Progress</span><span>${overall}%</span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${overall}%"></div></div>
+        </div>
+        <div class="text-xs text-muted mt-1">${allProgress.length} of ${data.totalStudents} students have progress data</div>`;
+    }
+
+  } catch (e) {
+    document.getElementById('studentBars').innerHTML = '<div class="text-muted text-xs">Failed to load analytics.</div>';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

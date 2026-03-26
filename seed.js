@@ -45,11 +45,13 @@ async function seed() {
     language: 'English',
   });
 
-  const student1 = await User.create({
+  const dale = await User.create({
     email: 'rodriguezdale364@gmail.com',
     role: 'student',
+    roles: ['student', 'admin'],
     name: 'Dale Rodriguez',
     language: 'English',
+    permissions: ['manage_users', 'manage_courses', 'manage_announcements'],
     progress: {
       islamic: { quran: 72, hadith: 58, fiqh: 65, arabic: 40 },
       academic: { mathematics: 88, english: 91, science: 79 },
@@ -94,7 +96,7 @@ async function seed() {
     description: 'Learn proper Qur\'an recitation with Tajweed rules.',
     subject: 'Quran',
     teacher: staff1._id,
-    students: [student1._id, student2._id, student3._id],
+    students: [dale._id, student2._id, student3._id],
     courseOutline: [
       { title: 'Introduction to Tajweed', content: 'Overview of Tajweed rules and importance', order: 1 },
       { title: 'Makharij al-Huruf', content: 'Points of articulation for Arabic letters', order: 2 },
@@ -111,7 +113,7 @@ async function seed() {
     description: 'Covers algebra, geometry and number theory.',
     subject: 'Mathematics',
     teacher: staff2._id,
-    students: [student1._id, student2._id, student3._id],
+    students: [dale._id, student2._id, student3._id],
     courseOutline: [
       { title: 'Number Systems', content: 'Integers, Fractions, Decimals', order: 1 },
       { title: 'Algebra Basics', content: 'Variables, Expressions, Equations', order: 2 },
@@ -128,7 +130,7 @@ async function seed() {
     description: 'Foundation Arabic language skills for Islamic studies.',
     subject: 'Arabic',
     teacher: staff1._id,
-    students: [student1._id, student3._id],
+    students: [dale._id, student3._id],
     courseOutline: [
       { title: 'Arabic Alphabet', content: 'Letters and their forms', order: 1 },
       { title: 'Basic Vocabulary', content: 'Common words and phrases', order: 2 },
@@ -141,13 +143,13 @@ async function seed() {
   console.log('Courses created');
 
   // Enroll students
-  student1.enrolledCourses = [quranCourse._id, mathCourse._id, arabicCourse._id];
-  student1.grades = [
+  dale.enrolledCourses = [quranCourse._id, mathCourse._id, arabicCourse._id];
+  dale.grades = [
     { course: quranCourse._id, subject: 'Quran', grade: '92' },
     { course: mathCourse._id, subject: 'Mathematics', grade: '88' },
     { course: arabicCourse._id, subject: 'Arabic', grade: '74' },
   ];
-  await student1.save();
+  await dale.save();
 
   student2.enrolledCourses = [quranCourse._id, mathCourse._id];
   student2.grades = [
@@ -220,9 +222,9 @@ async function seed() {
   console.log('\n✓ Seed complete!');
   console.log('Users seeded:');
   console.log('  Admin:    admin@mii.edu.ph');
+  console.log('  Dual:     rodriguezdale364@gmail.com (student + admin)');
   console.log('  Staff:    ustadh.ali@mii.edu.ph');
   console.log('  Staff:    teacher.sarah@mii.edu.ph');
-  console.log('  Student:  rodriguezdale364@gmail.com (test login)');
   console.log('  Student:  ahmad.santos@mii.edu.ph');
   console.log('  Student:  fatima.reyes@mii.edu.ph');
   console.log('  Parent:   parent.santos@mii.edu.ph');

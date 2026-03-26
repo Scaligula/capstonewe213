@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>User Management — MII VLE</title>
+  <link rel="stylesheet" href="app.css" />
+  <style>
+    .admin-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.55rem;
+      background: rgba(50,100,180,0.13); color: #80aaee;
+      border: 1px solid rgba(50,100,180,0.25); border-radius: 20px;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    /* Modal overlay */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65); z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border2);
+      border-radius: 14px; padding: 1.5rem;
+      width: min(520px, 96vw); max-height: 85vh;
+      overflow-y: auto; position: relative;
+    }
+    .modal-title { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 1rem; }
+    .modal-close {
+      position: absolute; top: 1rem; right: 1rem;
+      background: none; border: none; color: var(--text-muted);
+      font-size: 1.1rem; cursor: pointer; padding: 0.25rem;
+      border-radius: 6px; transition: all 0.15s;
+    }
+    .modal-close:hover { background: var(--surface3); color: var(--text); }
+    .modal-footer { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.25rem; }
+
+    /* Search bar */
+    .search-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center; }
+    .search-input {
+      flex: 1; padding: 0.45rem 0.85rem;
+      background: var(--surface2); border: 1px solid var(--border2);
+      border-radius: 8px; color: var(--text); font-size: 0.84rem;
+      font-family: inherit; transition: border-color 0.15s;
+    }
+    .search-input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 2px var(--green-dim); }
+    .search-input::placeholder { color: var(--text-dim); }
+
+    /* Action btn icon */
+    .action-btn {
+      background: none; border: 1px solid var(--border2);
+      border-radius: 6px; color: var(--text-muted);
+      padding: 0.25rem 0.5rem; cursor: pointer; font-size: 0.78rem;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .action-btn:hover { background: var(--surface3); color: var(--text); }
+    .action-btn.danger { border-color: rgba(180,50,50,0.3); color: #e08080; }
+    .action-btn.danger:hover { background: rgba(180,50,50,0.1); }
+    .action-btn.primary { border-color: var(--green-border); color: #7ec87e; }
+    .action-btn.primary:hover { background: var(--green-dim); }
+
+    /* Course tag */
+    .course-tag {
+      display: inline-block; padding: 0.1rem 0.45rem;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 5px; font-size: 0.68rem; color: var(--text-muted);
+      margin: 1px;
+    }
+
+    /* Course checkbox list */
+    .course-check-item {
+      display: flex; align-items: center; gap: 0.65rem;
+      padding: 0.55rem 0.65rem; border-radius: 8px;
+      cursor: pointer; transition: background 0.12s;
+    }
+    .course-check-item:hover { background: var(--surface2); }
+    .course-check-item input[type="checkbox"] { accent-color: var(--green); width: 15px; height: 15px; flex-shrink: 0; }
+    .course-check-name { font-size: 0.84rem; color: var(--text); font-weight: 500; }
+    .course-check-sub { font-size: 0.72rem; color: var(--text-muted); }
+
+    /* Alert */
+    .alert {
+      padding: 0.6rem 0.85rem; border-radius: 8px; font-size: 0.8rem;
+      margin-bottom: 0.75rem; display: none;
+    }
+    .alert.show { display: block; }
+    .alert-success { background: rgba(31,122,31,0.15); border: 1px solid var(--green-border); color: #7ec87e; }
+    .alert-error { background: rgba(180,50,50,0.12); border: 1px solid rgba(180,50,50,0.28); color: #e08080; }
+
+    .badge-role-admin  { background: rgba(50,100,180,0.13); color: #80aaee; border: 1px solid rgba(50,100,180,0.25); }
+    .badge-role-staff  { background: rgba(180,140,0,0.15); color: #c8a830; border: 1px solid rgba(180,140,0,0.28); }
+    .badge-role-student{ background: var(--green-dim); color: #7ec87e; border: 1px solid var(--green-border); }
+    .badge-role-parent { background: rgba(100,50,180,0.13); color: #b080ee; border: 1px solid rgba(100,50,180,0.25); }
+
+    .empty-state { text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.84rem; }
+    .empty-state .es-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+
+    .create-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+    @media (max-width: 520px) { .create-form-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="badge">☪</span> MII VLE
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-actions">
+      <span class="admin-badge">⚙ Admin</span>
+      <span class="topbar-name" id="topbarName">Loading…</span>
+      <div class="topbar-avatar" id="topbarAvatar" onclick="location.href='profile.html'">
+        <span id="topbarInitials">?</span>
+      </div>
+      <button class="icon-btn" title="Logout" onclick="location.href='/auth/logout'">⏻</button>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="nav-section-label">Administration</div>
+    <a class="nav-item" href="admin-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
+    <a class="nav-item active" href="admin-users.html"><span class="nav-icon">👥</span> User Management</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Account</div>
+    <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+    <a class="nav-item" href="settings.html"><span class="nav-icon">⚙</span> Settings</a>
+    <a class="nav-item" href="/auth/logout"><span class="nav-icon">⏻</span> Sign Out</a>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">
+      <div>
+        <h1>User Management</h1>
+        <p>Manage students, faculty, and system accounts</p>
+      </div>
+      <button class="btn btn-primary" onclick="openCreateModal()">➕ New Account</button>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar" style="margin-bottom:1.25rem;">
+      <button class="tab-bar-btn" id="tab-students" onclick="switchTab('students')">🎓 Students</button>
+      <button class="tab-bar-btn" id="tab-faculty"  onclick="switchTab('faculty')">👨‍🏫 Faculty</button>
+      <button class="tab-bar-btn" id="tab-accounts" onclick="switchTab('accounts')">🔑 Accounts</button>
+    </div>
+
+    <!-- Global alert -->
+    <div class="alert alert-success" id="globalAlert"></div>
+
+    <!-- ======= STUDENTS TAB ======= -->
+    <div id="panel-students" class="tab-panel">
+      <div class="card">
+        <div class="search-row">
+          <input class="search-input" id="studentSearch" placeholder="Search students…" oninput="filterTable('studentTbody', this.value)" />
+          <span class="text-xs text-muted" id="studentCount"></span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Email</th>
+                <th>Enrolled Courses</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="studentTbody">
+              <tr><td colspan="4" class="text-muted text-xs">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======= FACULTY TAB ======= -->
+    <div id="panel-faculty" class="tab-panel hidden">
+      <div class="card">
+        <div class="search-row">
+          <input class="search-input" id="facultySearch" placeholder="Search faculty…" oninput="filterTable('facultyTbody', this.value)" />
+          <span class="text-xs text-muted" id="facultyCount"></span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Faculty</th>
+                <th>Email</th>
+                <th>Teaching Courses</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="facultyTbody">
+              <tr><td colspan="4" class="text-muted text-xs">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======= ACCOUNTS TAB ======= -->
+    <div id="panel-accounts" class="tab-panel hidden">
+      <div class="card">
+        <div class="search-row">
+          <input class="search-input" id="accountSearch" placeholder="Search all accounts…" oninput="filterTable('accountTbody', this.value)" />
+          <span class="text-xs text-muted" id="accountCount"></span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Admin Access</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="accountTbody">
+              <tr><td colspan="5" class="text-muted text-xs">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ===== ASSIGN STUDENT COURSES MODAL ===== -->
+<div class="modal-overlay" id="assignStudentModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('assignStudentModal')">✕</button>
+    <div class="modal-title">Assign Courses — <span id="assignStudentName"></span></div>
+    <div class="text-xs text-muted mb-1">Select courses to enroll this student in:</div>
+    <div id="assignStudentCourseList"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('assignStudentModal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveStudentCourses()">Save Enrollment</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ASSIGN FACULTY COURSES MODAL ===== -->
+<div class="modal-overlay" id="assignFacultyModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('assignFacultyModal')">✕</button>
+    <div class="modal-title">Assign Teaching Courses — <span id="assignFacultyName"></span></div>
+    <div class="text-xs text-muted mb-1">Select courses where this faculty member will be the teacher:</div>
+    <div id="assignFacultyCourseList"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('assignFacultyModal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveFacultyCourses()">Save Assignments</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CREATE ACCOUNT MODAL ===== -->
+<div class="modal-overlay" id="createModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('createModal')">✕</button>
+    <div class="modal-title">Create New Account</div>
+    <div class="alert alert-error" id="createError"></div>
+    <div class="create-form-grid">
+      <div class="form-group">
+        <label class="form-label">Full Name *</label>
+        <input class="form-input" id="createName" placeholder="e.g. Ahmad Santos" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email Address *</label>
+        <input class="form-input" id="createEmail" type="email" placeholder="user@mii.edu.ph" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role *</label>
+        <select class="form-input" id="createRole">
+          <option value="student">Student</option>
+          <option value="staff">Faculty / Staff</option>
+          <option value="parent">Parent</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Language</label>
+        <select class="form-input" id="createLanguage">
+          <option value="English">English</option>
+          <option value="Arabic">Arabic</option>
+          <option value="Filipino">Filipino</option>
+        </select>
+      </div>
+    </div>
+    <div class="text-xs text-muted" style="margin-top:-0.25rem;">
+      ☪ The user will log in via their Google account using the email above.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('createModal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="createAccount()">Create Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== EDIT ROLE MODAL ===== -->
+<div class="modal-overlay" id="editRoleModal">
+  <div class="modal" style="max-width:380px;">
+    <button class="modal-close" onclick="closeModal('editRoleModal')">✕</button>
+    <div class="modal-title">Change Role — <span id="editRoleName"></span></div>
+    <div class="form-group">
+      <label class="form-label">New Role</label>
+      <select class="form-input" id="editRoleSelect">
+        <option value="student">Student</option>
+        <option value="staff">Faculty / Staff</option>
+        <option value="parent">Parent</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('editRoleModal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveRole()">Save Role</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== RESET CONFIRM MODAL ===== -->
+<div class="modal-overlay" id="resetModal">
+  <div class="modal" style="max-width:400px;">
+    <button class="modal-close" onclick="closeModal('resetModal')">✕</button>
+    <div class="modal-title">Reset Account</div>
+    <p style="font-size:0.84rem;color:var(--text-muted);margin-bottom:1rem;">
+      This will clear <strong style="color:var(--text)" id="resetUserName"></strong>'s grades, progress data, and course enrollments. This cannot be undone.
+    </p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('resetModal')">Cancel</button>
+      <button class="btn btn-sm" style="background:#8b2020;color:#fff;" onclick="confirmReset()">Reset Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DELETE CONFIRM MODAL ===== -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal" style="max-width:400px;">
+    <button class="modal-close" onclick="closeModal('deleteModal')">✕</button>
+    <div class="modal-title">Delete Account</div>
+    <p style="font-size:0.84rem;color:var(--text-muted);margin-bottom:1rem;">
+      Permanently delete the account for <strong style="color:var(--text)" id="deleteUserName"></strong>? This cannot be undone.
+    </p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('deleteModal')">Cancel</button>
+      <button class="btn btn-sm" style="background:#8b2020;color:#fff;" onclick="confirmDelete()">Delete Account</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Utilities ──────────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function roleBadge(role) {
+  const cls = { admin:'badge-role-admin', staff:'badge-role-staff', student:'badge-role-student', parent:'badge-role-parent' }[role] || '';
+  const lbl = { admin:'Admin', staff:'Faculty', student:'Student', parent:'Parent' }[role] || esc(role);
+  return `<span class="badge ${cls}">${lbl}</span>`;
+}
+
+function initials(name) {
+  return String(name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+}
+
+function showGlobalAlert(msg, isError = false) {
+  const el = document.getElementById('globalAlert');
+  el.className = 'alert ' + (isError ? 'alert-error' : 'alert-success') + ' show';
+  el.textContent = msg;
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+// ── State ──────────────────────────────────────────────────────────────────
+let me = null;
+let allUsers = [];
+let allCourses = [];
+let activeStudentId = null;
+let activeFacultyId = null;
+let activeResetId = null;
+let activeDeleteId = null;
+let activeEditRoleId = null;
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  const res = await fetch('/api/me');
+  if (!res.ok) { location.href = '/'; return; }
+  me = await res.json();
+  if (me.role !== 'admin') { location.href = '/student-dashboard.html'; return; }
+
+  const name = me.name || 'Admin';
+  document.getElementById('topbarName').textContent = name;
+  document.getElementById('topbarInitials').textContent = initials(name);
+  if (me.profilePicture) {
+    document.getElementById('topbarAvatar').innerHTML = `<img src="${esc(me.profilePicture)}" alt="${esc(name)}">`;
+  }
+
+  await Promise.all([loadUsers(), loadCourses()]);
+
+  // Show "Switch View" for dual-role users
+  if ((me.roles || []).length > 1) {
+    const sidebar = document.getElementById('sidebar');
+    const divider = document.createElement('div');
+    divider.className = 'nav-divider';
+    const label = document.createElement('div');
+    label.className = 'nav-section-label';
+    label.textContent = 'Switch View';
+    const link = document.createElement('a');
+    link.className = 'nav-item';
+    link.href = '/role-select.html';
+    link.innerHTML = '<span class="nav-icon">⇄</span> Switch to Student';
+    sidebar.insertBefore(divider, sidebar.lastElementChild.previousElementSibling.previousElementSibling);
+    sidebar.insertBefore(label, sidebar.lastElementChild.previousElementSibling.previousElementSibling);
+    sidebar.insertBefore(link, sidebar.lastElementChild.previousElementSibling.previousElementSibling);
+  }
+
+  // Check URL params for default tab/action
+  const params = new URLSearchParams(location.search);
+  const tab = params.get('tab') || 'students';
+  switchTab(tab);
+  if (params.get('action') === 'create') openCreateModal();
+}
+
+async function loadUsers() {
+  const r = await fetch('/api/admin/users');
+  if (!r.ok) return;
+  allUsers = await r.json();
+  renderAll();
+}
+
+async function loadCourses() {
+  const r = await fetch('/api/admin/courses');
+  if (!r.ok) return;
+  allCourses = await r.json();
+}
+
+function renderAll() {
+  renderStudents();
+  renderFaculty();
+  renderAccounts();
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tab) {
+  ['students','faculty','accounts'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
+  });
+}
+
+// ── Search filter ─────────────────────────────────────────────────────────
+function filterTable(tbodyId, query) {
+  const q = query.toLowerCase();
+  const rows = document.getElementById(tbodyId).querySelectorAll('tr[data-search]');
+  rows.forEach(row => {
+    row.style.display = row.dataset.search.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+// ── Students ───────────────────────────────────────────────────────────────
+function renderStudents() {
+  const students = allUsers.filter(u => u.role === 'student');
+  document.getElementById('studentCount').textContent = students.length + ' student' + (students.length !== 1 ? 's' : '');
+  const tbody = document.getElementById('studentTbody');
+  if (!students.length) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="es-icon">🎓</div>No students found.</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = students.map(u => {
+    const courses = (u.enrolledCourses || []).map(c => `<span class="course-tag">${esc(c.name||c)}</span>`).join('');
+    return `<tr data-search="${esc(u.name)} ${esc(u.email)}">
+      <td>
+        <div style="display:flex;align-items:center;gap:0.6rem;">
+          <div class="avatar" style="width:30px;height:30px;font-size:0.72rem;">${esc(initials(u.name))}</div>
+          <span style="font-weight:600;">${esc(u.name)}</span>
+        </div>
+      </td>
+      <td class="text-muted">${esc(u.email)}</td>
+      <td>${courses || '<span class="text-muted text-xs">None</span>'}</td>
+      <td>
+        <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
+          <button class="action-btn primary" onclick="openAssignStudent('${esc(u._id)}')">📚 Courses</button>
+          <button class="action-btn danger" onclick="openDelete('${esc(u._id)}','${esc(u.name)}')">🗑 Delete</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Faculty ────────────────────────────────────────────────────────────────
+function renderFaculty() {
+  const faculty = allUsers.filter(u => u.role === 'staff');
+  document.getElementById('facultyCount').textContent = faculty.length + ' member' + (faculty.length !== 1 ? 's' : '');
+  const tbody = document.getElementById('facultyTbody');
+  if (!faculty.length) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="es-icon">👨‍🏫</div>No faculty members found.</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = faculty.map(u => {
+    const teaching = allCourses.filter(c => String(c.teacher?._id || c.teacher) === String(u._id));
+    const courseTags = teaching.map(c => `<span class="course-tag">${esc(c.name)}</span>`).join('');
+    return `<tr data-search="${esc(u.name)} ${esc(u.email)}">
+      <td>
+        <div style="display:flex;align-items:center;gap:0.6rem;">
+          <div class="avatar" style="width:30px;height:30px;font-size:0.72rem;">${esc(initials(u.name))}</div>
+          <span style="font-weight:600;">${esc(u.name)}</span>
+        </div>
+      </td>
+      <td class="text-muted">${esc(u.email)}</td>
+      <td>${courseTags || '<span class="text-muted text-xs">None assigned</span>'}</td>
+      <td>
+        <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
+          <button class="action-btn primary" onclick="openAssignFaculty('${esc(u._id)}')">📚 Courses</button>
+          <button class="action-btn danger" onclick="openDelete('${esc(u._id)}','${esc(u.name)}')">🗑 Delete</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Accounts ───────────────────────────────────────────────────────────────
+function renderAccounts() {
+  document.getElementById('accountCount').textContent = allUsers.length + ' account' + (allUsers.length !== 1 ? 's' : '');
+  const tbody = document.getElementById('accountTbody');
+  if (!allUsers.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="es-icon">👤</div>No accounts found.</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = allUsers.map(u => {
+    const isSelf = String(u._id) === String(me._id);
+    const adminBadge = u.role === 'admin'
+      ? `<span class="badge badge-green" style="gap:0.25rem;">✓ Admin</span>`
+      : `<span class="text-muted text-xs">—</span>`;
+    const toggleAdminBtn = u.role === 'admin'
+      ? `<button class="action-btn" onclick="openEditRole('${esc(u._id)}','${esc(u.name)}','${esc(u.role)}')" ${isSelf ? 'disabled title="Cannot change own role"' : ''}>Change Role</button>`
+      : `<button class="action-btn primary" onclick="openEditRole('${esc(u._id)}','${esc(u.name)}','${esc(u.role)}')">Change Role</button>`;
+    return `<tr data-search="${esc(u.name)} ${esc(u.email)} ${u.role}">
+      <td>
+        <div style="display:flex;align-items:center;gap:0.6rem;">
+          <div class="avatar" style="width:30px;height:30px;font-size:0.72rem;">${esc(initials(u.name))}</div>
+          <div>
+            <div style="font-weight:600;">${esc(u.name)}</div>
+            ${isSelf ? '<div class="text-xs" style="color:var(--text-dim);">You</div>' : ''}
+          </div>
+        </div>
+      </td>
+      <td class="text-muted">${esc(u.email)}</td>
+      <td>${roleBadge(u.role)}</td>
+      <td>${adminBadge}</td>
+      <td>
+        <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
+          ${toggleAdminBtn}
+          <button class="action-btn" onclick="openReset('${esc(u._id)}','${esc(u.name)}')" ${isSelf ? 'disabled' : ''}>↺ Reset</button>
+          <button class="action-btn danger" onclick="openDelete('${esc(u._id)}','${esc(u.name)}')" ${isSelf ? 'disabled title="Cannot delete own account"' : ''}>🗑 Delete</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Modal helpers ──────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// Close on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+});
+
+// ── Assign Student Courses ─────────────────────────────────────────────────
+function openAssignStudent(userId) {
+  activeStudentId = userId;
+  const user = allUsers.find(u => String(u._id) === userId);
+  document.getElementById('assignStudentName').textContent = user?.name || '';
+  const enrolled = new Set((user?.enrolledCourses || []).map(c => String(c._id || c)));
+  document.getElementById('assignStudentCourseList').innerHTML = allCourses.map(c => `
+    <label class="course-check-item">
+      <input type="checkbox" value="${esc(c._id)}" ${enrolled.has(String(c._id)) ? 'checked' : ''} />
+      <div>
+        <div class="course-check-name">${esc(c.name)}</div>
+        <div class="course-check-sub">${esc(c.subject)} · Teacher: ${esc(c.teacher?.name || 'Unassigned')}</div>
+      </div>
+    </label>`).join('') || '<div class="text-muted text-xs">No courses available.</div>';
+  openModal('assignStudentModal');
+}
+
+async function saveStudentCourses() {
+  const checked = [...document.querySelectorAll('#assignStudentCourseList input:checked')].map(el => el.value);
+  const r = await fetch(`/api/admin/users/${activeStudentId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enrolledCourses: checked }),
+  });
+  if (r.ok) {
+    closeModal('assignStudentModal');
+    await loadUsers();
+    showGlobalAlert('Course enrollment updated.');
+  } else {
+    const d = await r.json();
+    showGlobalAlert(d.error || 'Failed to update enrollment.', true);
+  }
+}
+
+// ── Assign Faculty Courses ─────────────────────────────────────────────────
+function openAssignFaculty(userId) {
+  activeFacultyId = userId;
+  const user = allUsers.find(u => String(u._id) === userId);
+  document.getElementById('assignFacultyName').textContent = user?.name || '';
+  const teaching = new Set(allCourses.filter(c => String(c.teacher?._id || c.teacher) === userId).map(c => String(c._id)));
+  document.getElementById('assignFacultyCourseList').innerHTML = allCourses.map(c => `
+    <label class="course-check-item">
+      <input type="checkbox" value="${esc(c._id)}" ${teaching.has(String(c._id)) ? 'checked' : ''} />
+      <div>
+        <div class="course-check-name">${esc(c.name)}</div>
+        <div class="course-check-sub">${esc(c.subject)} · Currently: ${esc(c.teacher?.name || 'Unassigned')}</div>
+      </div>
+    </label>`).join('') || '<div class="text-muted text-xs">No courses available.</div>';
+  openModal('assignFacultyModal');
+}
+
+async function saveFacultyCourses() {
+  const checked = [...document.querySelectorAll('#assignFacultyCourseList input:checked')].map(el => el.value);
+  const unchecked = allCourses.filter(c => !checked.includes(String(c._id))).map(c => c._id);
+
+  // Set teacher for checked courses; restore unchecked where this faculty was teacher
+  const updates = [
+    ...checked.map(cid => fetch(`/api/admin/courses/${cid}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teacher: activeFacultyId }),
+    })),
+    ...allCourses
+      .filter(c => !checked.includes(String(c._id)) && String(c.teacher?._id || c.teacher) === activeFacultyId)
+      .map(c => fetch(`/api/admin/courses/${c._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teacher: null }),
+      })),
+  ];
+
+  const results = await Promise.all(updates);
+  const failed = results.filter(r => !r.ok);
+  closeModal('assignFacultyModal');
+  await Promise.all([loadUsers(), loadCourses()]);
+  if (failed.length) showGlobalAlert(`Some updates failed (${failed.length}).`, true);
+  else showGlobalAlert('Teaching assignments updated.');
+}
+
+// ── Create Account ─────────────────────────────────────────────────────────
+function openCreateModal() {
+  document.getElementById('createName').value = '';
+  document.getElementById('createEmail').value = '';
+  document.getElementById('createRole').value = 'student';
+  document.getElementById('createLanguage').value = 'English';
+  document.getElementById('createError').classList.remove('show');
+  openModal('createModal');
+  switchTab('accounts');
+}
+
+async function createAccount() {
+  const name = document.getElementById('createName').value.trim();
+  const email = document.getElementById('createEmail').value.trim();
+  const role = document.getElementById('createRole').value;
+  const language = document.getElementById('createLanguage').value;
+  const errEl = document.getElementById('createError');
+  errEl.classList.remove('show');
+
+  if (!name || !email) {
+    errEl.textContent = 'Name and email are required.';
+    errEl.classList.add('show');
+    return;
+  }
+  const r = await fetch('/api/admin/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, role, language }),
+  });
+  const data = await r.json();
+  if (r.ok) {
+    closeModal('createModal');
+    await loadUsers();
+    showGlobalAlert(`Account created for ${name}.`);
+  } else {
+    errEl.textContent = data.error || 'Failed to create account.';
+    errEl.classList.add('show');
+  }
+}
+
+// ── Edit Role ──────────────────────────────────────────────────────────────
+function openEditRole(userId, name, currentRole) {
+  activeEditRoleId = userId;
+  document.getElementById('editRoleName').textContent = name;
+  document.getElementById('editRoleSelect').value = currentRole;
+  openModal('editRoleModal');
+}
+
+async function saveRole() {
+  const role = document.getElementById('editRoleSelect').value;
+  const r = await fetch(`/api/admin/users/${activeEditRoleId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role }),
+  });
+  if (r.ok) {
+    closeModal('editRoleModal');
+    await loadUsers();
+    showGlobalAlert('Role updated successfully.');
+  } else {
+    const d = await r.json();
+    showGlobalAlert(d.error || 'Failed to update role.', true);
+  }
+}
+
+// ── Reset Account ──────────────────────────────────────────────────────────
+function openReset(userId, name) {
+  activeResetId = userId;
+  document.getElementById('resetUserName').textContent = name;
+  openModal('resetModal');
+}
+
+async function confirmReset() {
+  const r = await fetch(`/api/admin/users/${activeResetId}/reset`, { method: 'POST' });
+  if (r.ok) {
+    closeModal('resetModal');
+    await loadUsers();
+    showGlobalAlert('Account data reset successfully.');
+  } else {
+    const d = await r.json();
+    showGlobalAlert(d.error || 'Failed to reset account.', true);
+  }
+}
+
+// ── Delete Account ─────────────────────────────────────────────────────────
+function openDelete(userId, name) {
+  activeDeleteId = userId;
+  document.getElementById('deleteUserName').textContent = name;
+  openModal('deleteModal');
+}
+
+async function confirmDelete() {
+  const r = await fetch(`/api/admin/users/${activeDeleteId}`, { method: 'DELETE' });
+  if (r.ok) {
+    closeModal('deleteModal');
+    await loadUsers();
+    showGlobalAlert('Account deleted.');
+  } else {
+    const d = await r.json();
+    showGlobalAlert(d.error || 'Failed to delete account.', true);
+  }
+}
+
+init();
+</script>
+</body>
+</html>

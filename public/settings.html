@@ -17,24 +17,7 @@
       <button class="icon-btn" onclick="location.href='/auth/logout'">⏻</button>
     </div>
   </header>
-  <nav class="sidebar">
-    <div class="nav-section-label">Main</div>
-    <a class="nav-item" href="student-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
-    <a class="nav-item" href="courses.html"><span class="nav-icon">📚</span> My Courses</a>
-    <a class="nav-item" href="assignments.html"><span class="nav-icon">📝</span> Assignments</a>
-    <a class="nav-item" href="calendar.html"><span class="nav-icon">📅</span> Calendar</a>
-    <div class="nav-divider"></div>
-    <div class="nav-section-label">Learning</div>
-    <a class="nav-item" href="grades.html"><span class="nav-icon">📊</span> Grades</a>
-    <a class="nav-item" href="progress.html"><span class="nav-icon">📈</span> Progress</a>
-    <a class="nav-item" href="announcements.html"><span class="nav-icon">📣</span> Announcements</a>
-    <a class="nav-item" href="people.html"><span class="nav-icon">👥</span> People</a>
-    <div class="nav-divider"></div>
-    <div class="nav-section-label">Account</div>
-    <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
-    <a class="nav-item active" href="settings.html"><span class="nav-icon">⚙</span> Settings</a>
-    <a class="nav-item" href="/auth/logout"><span class="nav-icon">⏻</span> Sign Out</a>
-  </nav>
+  <nav class="sidebar" id="sidebar"></nav>
   <main class="main">
     <div class="page-header">
       <h1>Settings</h1>
@@ -62,10 +45,43 @@
 <script>
 let currentUser = null;
 
+function buildSidebar(role, roles) {
+  const isAdmin = role === 'admin';
+  const adminNav = `
+    <div class="nav-section-label">Administration</div>
+    <a class="nav-item" href="admin-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
+    <a class="nav-item" href="admin-users.html"><span class="nav-icon">👥</span> User Management</a>
+    <div class="nav-divider"></div>`;
+  const studentNav = `
+    <div class="nav-section-label">Main</div>
+    <a class="nav-item" href="student-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
+    <a class="nav-item" href="courses.html"><span class="nav-icon">📚</span> My Courses</a>
+    <a class="nav-item" href="assignments.html"><span class="nav-icon">📝</span> Assignments</a>
+    <a class="nav-item" href="calendar.html"><span class="nav-icon">📅</span> Calendar</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Learning</div>
+    <a class="nav-item" href="grades.html"><span class="nav-icon">📊</span> Grades</a>
+    <a class="nav-item" href="progress.html"><span class="nav-icon">📈</span> Progress</a>
+    <a class="nav-item" href="announcements.html"><span class="nav-icon">📣</span> Announcements</a>
+    <a class="nav-item" href="people.html"><span class="nav-icon">👥</span> People</a>
+    <div class="nav-divider"></div>`;
+  const switchLink = (roles || []).length > 1
+    ? `<div class="nav-divider"></div><div class="nav-section-label">Switch View</div><a class="nav-item" href="/role-select.html"><span class="nav-icon">⇄</span> Switch to ${isAdmin ? 'Student' : 'Admin'}</a>`
+    : '';
+  document.getElementById('sidebar').innerHTML = `
+    ${isAdmin ? adminNav : studentNav}
+    <div class="nav-section-label">Account</div>
+    <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
+    <a class="nav-item active" href="settings.html"><span class="nav-icon">⚙</span> Settings</a>
+    ${switchLink}
+    <a class="nav-item" href="/auth/logout"><span class="nav-icon">⏻</span> Sign Out</a>`;
+}
+
 async function init() {
   const res = await fetch('/api/me');
   if (!res.ok) { location.href='/'; return; }
   currentUser = await res.json();
+  buildSidebar(currentUser.role, currentUser.roles);
   const name = currentUser.name||'';
   const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('topbarName').textContent = name;

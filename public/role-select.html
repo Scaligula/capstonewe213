@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Choose View — MII VLE</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green: #1f7a1f;
+      --green-hover: #267326;
+      --green-dim: rgba(31,122,31,0.18);
+      --green-border: rgba(31,122,31,0.35);
+      --bg: #0e1512;
+      --surface: #141e18;
+      --surface2: #1a2720;
+      --border: rgba(255,255,255,0.07);
+      --border2: rgba(255,255,255,0.12);
+      --text: #ddeedd;
+      --text-muted: #6a9e6e;
+      --text-dim: #4a6b4a;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      padding: 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: url('Meba Islamic Institute.jpg') center/cover no-repeat;
+      opacity: 0.08; z-index: 0;
+    }
+    .page { position: relative; z-index: 1; width: min(100%, 480px); }
+
+    /* Logo */
+    .logo-area { text-align: center; margin-bottom: 2rem; }
+    .mii-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 50px; height: 50px;
+      background: var(--green-dim);
+      border: 1.5px solid var(--green-border);
+      border-radius: 14px; margin-bottom: 0.85rem; font-size: 1.5rem;
+    }
+    .logo-area h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+    .logo-area p { font-size: 0.72rem; color: var(--text-muted); letter-spacing: 0.18em; text-transform: uppercase; margin-top: 0.2rem; }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.75rem;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.55);
+    }
+    .card-header { text-align: center; margin-bottom: 1.5rem; }
+    .welcome-name { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+    .welcome-sub  { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem; }
+
+    /* User pill */
+    .user-pill {
+      display: inline-flex; align-items: center; gap: 0.6rem;
+      background: var(--surface2); border: 1px solid var(--border2);
+      border-radius: 30px; padding: 0.4rem 0.85rem 0.4rem 0.4rem;
+      margin-bottom: 1.25rem;
+    }
+    .user-avatar {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: var(--green-dim); border: 1.5px solid var(--green-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 700; color: #9dc89d;
+      overflow: hidden; flex-shrink: 0;
+    }
+    .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .user-email { font-size: 0.78rem; color: var(--text-muted); }
+
+    /* Role cards */
+    .role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+    .role-card {
+      border: 2px solid var(--border2);
+      border-radius: 12px;
+      padding: 1.35rem 1rem;
+      background: var(--surface2);
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.18s;
+      display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+      position: relative;
+    }
+    .role-card:hover { border-color: var(--green); background: rgba(31,122,31,0.1); transform: translateY(-2px); }
+    .role-card.loading { opacity: 0.6; pointer-events: none; }
+    .role-icon { font-size: 2rem; }
+    .role-name { font-size: 0.92rem; font-weight: 700; color: var(--text); }
+    .role-sub  { font-size: 0.72rem; color: var(--text-muted); }
+    .role-arrow {
+      position: absolute; bottom: 0.6rem; right: 0.7rem;
+      font-size: 0.8rem; color: var(--text-dim); opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .role-card:hover .role-arrow { opacity: 1; }
+
+    .divider { text-align: center; font-size: 0.7rem; color: var(--text-dim); margin: 1.25rem 0 0; letter-spacing: 0.06em; }
+    .logout-link { display: block; text-align: center; margin-top: 0.6rem; font-size: 0.78rem; color: var(--text-muted); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+    .logout-link:hover { color: var(--text); }
+
+    .error-msg { font-size: 0.78rem; color: #e08080; text-align: center; margin-top: 0.75rem; display: none; }
+    .error-msg.show { display: block; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="logo-area">
+    <div class="mii-badge">☪</div>
+    <h1>MII VLE</h1>
+    <p>Meba Islamic Institute</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div style="display:flex;justify-content:center;margin-bottom:0.75rem;">
+        <div class="user-pill">
+          <div class="user-avatar" id="userAvatar"><span id="userInitials">?</span></div>
+          <span class="user-email" id="userEmail">Loading…</span>
+        </div>
+      </div>
+      <div class="welcome-name" id="welcomeName">Welcome back</div>
+      <div class="welcome-sub">Your account has multiple roles. Choose how you'd like to sign in today.</div>
+    </div>
+
+    <div class="role-grid" id="roleGrid">
+      <!-- Dynamically rendered based on user.roles -->
+    </div>
+
+    <div class="error-msg" id="errorMsg">Failed to set role. Please try again.</div>
+
+    <div class="divider">NOT YOUR ACCOUNT?</div>
+    <a class="logout-link" href="/auth/logout">Sign out and use a different account</a>
+  </div>
+</div>
+
+<script>
+const ROLE_META = {
+  student: { icon: '🎓', name: 'Student',  sub: 'View courses, grades & assignments', dest: '/student-dashboard.html' },
+  admin:   { icon: '⚙',  name: 'Admin',    sub: 'Manage users, courses & analytics',   dest: '/admin-dashboard.html'  },
+  staff:   { icon: '👨‍🏫', name: 'Faculty',  sub: 'Teach courses and manage content',    dest: '/staff-dashboard.html'  },
+  parent:  { icon: '👪', name: 'Parent',   sub: 'Monitor your child\'s progress',       dest: '/parent-dashboard.html' },
+};
+
+async function init() {
+  const res = await fetch('/api/me');
+  if (!res.ok) { location.href = '/'; return; }
+  const user = await res.json();
+
+  const name = user.name || 'User';
+  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  document.getElementById('welcomeName').textContent = 'Welcome back, ' + name.split(' ')[0];
+  document.getElementById('userEmail').textContent = user.email;
+  document.getElementById('userInitials').textContent = initials;
+  if (user.profilePicture) {
+    document.getElementById('userAvatar').innerHTML = `<img src="${user.profilePicture}" alt="${name}">`;
+  }
+
+  const roles = user.roles?.length ? user.roles : [user.role];
+
+  // If single role, just redirect immediately
+  if (roles.length === 1) {
+    await selectRole(roles[0]);
+    return;
+  }
+
+  const grid = document.getElementById('roleGrid');
+  grid.innerHTML = roles.map(role => {
+    const meta = ROLE_META[role] || { icon: '👤', name: role, sub: '', dest: '/' };
+    return `<div class="role-card" onclick="selectRole('${role}', this)">
+      <div class="role-icon">${meta.icon}</div>
+      <div class="role-name">${meta.name}</div>
+      <div class="role-sub">${meta.sub}</div>
+      <span class="role-arrow">→</span>
+    </div>`;
+  }).join('');
+}
+
+async function selectRole(role, cardEl) {
+  if (cardEl) cardEl.classList.add('loading');
+  document.getElementById('errorMsg').classList.remove('show');
+
+  try {
+    const r = await fetch('/api/session/role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    });
+    if (!r.ok) throw new Error('Failed');
+    const meta = ROLE_META[role] || {};
+    location.href = meta.dest || '/';
+  } catch {
+    if (cardEl) cardEl.classList.remove('loading');
+    document.getElementById('errorMsg').classList.add('show');
+  }
+}
+
+init();
+</script>
+</body>
+</html>

@@ -14,7 +14,8 @@ const userSchema = new mongoose.Schema({
     academic: { mathematics: Number, english: Number, science: Number }
   },
   children: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  permissions: [String]
+  permissions: [String],
+  roles: [{ type: String, enum: ['student', 'parent', 'admin', 'staff'] }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

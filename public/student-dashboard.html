@@ -25,7 +25,7 @@
   </header>
 
   <!-- Sidebar -->
-  <nav class="sidebar">
+  <nav class="sidebar" id="sidebar">
     <div class="nav-section-label">Main</div>
     <a class="nav-item active" href="student-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
     <a class="nav-item" href="courses.html"><span class="nav-icon">📚</span> My Courses</a>
@@ -140,7 +140,23 @@ async function init() {
   loadAnnouncements();
   loadCourses();
   loadProgress();
-}
+
+  // Show "Switch View" for dual-role users
+  if ((currentUser.roles || []).length > 1) {
+    const sidebar = document.getElementById('sidebar');
+    const divider = document.createElement('div');
+    divider.className = 'nav-divider';
+    const label = document.createElement('div');
+    label.className = 'nav-section-label';
+    label.textContent = 'Switch View';
+    const link = document.createElement('a');
+    link.className = 'nav-item';
+    link.href = '/role-select.html';
+    link.innerHTML = '<span class="nav-icon">⇄</span> Switch to Admin';
+    sidebar.insertBefore(divider, sidebar.lastElementChild.previousElementSibling.previousElementSibling);
+    sidebar.insertBefore(label, sidebar.lastElementChild.previousElementSibling.previousElementSibling);
+    sidebar.insertBefore(link, sidebar.lastElementChild.previousElementSibling.previousElementSibling);
+  }
 
 async function loadStats() {
   const courses = currentUser.enrolledCourses || [];
