@@ -99,10 +99,12 @@ passport.use(new GoogleStrategy({
 }));
 
 app.get('/debug-callback', (req, res) => {
+  const cid = process.env.GOOGLE_CLIENT_ID || '';
   res.json({
     callbackURL,
     callbackURL_raw: process.env.GOOGLE_CALLBACK_URL || '(not set, using default)',
     callbackURL_length: (process.env.GOOGLE_CALLBACK_URL || '').length,
+    clientID_preview: cid.substring(0, 15) + '...' + cid.slice(-20),
     clientID_set: !!process.env.GOOGLE_CLIENT_ID,
     clientSecret_set: !!process.env.GOOGLE_CLIENT_SECRET,
     host: req.get('host'),
