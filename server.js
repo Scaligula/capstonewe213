@@ -367,12 +367,12 @@ app.get('/api/admin/analytics', requireAdmin, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Only redirect unknown non-file, non-API routes to index.html
+// Only redirect unknown non-file, non-API routes to Meba-Islamic-Institute.html
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/auth/')) {
     return res.status(404).json({ error: 'Not found' });
   }
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'Meba-Islamic-Institute.html'));
 });
 
 // Export for Vercel serverless; also listen locally when run directly.
