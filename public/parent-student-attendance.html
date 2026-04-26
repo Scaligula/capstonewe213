@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Attendance Records — MII Parent Portal</title>
+  <link rel="stylesheet" href="MII.css" />
+  <style>
+    .back-btn {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border2);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.84rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-bottom: 1rem;
+    }
+    .back-btn:hover { background: var(--surface3); }
+    .attendance-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    .attendance-table th {
+      background: var(--surface2);
+      padding: 0.75rem;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .attendance-table td {
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.84rem;
+    }
+    .attendance-table tr:hover { background: var(--surface2); }
+    .status-badge {
+      display: inline-block;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+    .status-present {
+      background: rgba(31, 122, 31, 0.2);
+      color: #8ecf8e;
+    }
+    .status-absent {
+      background: rgba(255, 107, 107, 0.2);
+      color: #ff9999;
+    }
+    .status-late {
+      background: rgba(200, 150, 50, 0.2);
+      color: #e8c068;
+    }
+    .status-excused {
+      background: rgba(100, 150, 200, 0.2);
+      color: #7db8e8;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+    }
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--green);
+    }
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-top: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-brand">📚 MII Parent Portal</div>
+      <div class="topbar-spacer"></div>
+      <div class="topbar-actions">
+        <button class="logout-btn" onclick="handleLogout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div style="grid-column: 1 / -1; grid-row: 2; background: var(--bg); overflow-y: auto;">
+      <div class="main">
+        <button class="back-btn" onclick="window.location.href='/parent-dashboard.html'">← Back to Dashboard</button>
+
+        <div class="page-header">
+          <h1>Attendance Records</h1>
+          <p>View your student's attendance history</p>
+        </div>
+
+        <div id="statsRow" class="stats-row"></div>
+
+        <div class="card">
+          <table class="attendance-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Course</th>
+                <th>Status</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceTableBody">
+              <tr><td colspan="4" class="empty-state">Loading attendance records...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadAttendance() {
+      try {
+        const dashboardRes = await fetch('/api/parent/dashboard');
+        if (!dashboardRes.ok) {
+          if (dashboardRes.status === 401) {
+            window.location.href = '/parent-login.html';
+            return;
+          }
+          throw new Error('Failed to load dashboard');
+        }
+
+        const dashboardData = await dashboardRes.json();
+        const studentId = dashboardData.student._id;
+
+        const attendanceRes = await fetch(`/api/parent/student/${studentId}/attendance`);
+        if (!attendanceRes.ok) throw new Error('Failed to load attendance');
+
+        const attendanceData = await attendanceRes.json();
+        const { attendance } = attendanceData;
+
+        // Calculate stats
+        const stats = {
+          present: 0,
+          absent: 0,
+          late: 0,
+          excused: 0
+        };
+
+        if (attendance && attendance.length > 0) {
+          attendance.forEach(record => {
+            stats[record.status.toLowerCase()]++;
+          });
+
+          // Render attendance table
+          const attendanceRows = attendance.map(record => {
+            const date = new Date(record.date).toLocaleDateString();
+            let statusClass = `status-${record.status.toLowerCase()}`;
+            return `
+              <tr>
+                <td>${date}</td>
+                <td>${record.course?.name || 'N/A'}</td>
+                <td><span class="status-badge ${statusClass}">${record.status}</span></td>
+                <td>${record.notes || '-'}</td>
+              </tr>
+            `;
+          }).join('');
+
+          document.getElementById('attendanceTableBody').innerHTML = attendanceRows;
+        } else {
+          document.getElementById('attendanceTableBody').innerHTML =
+            '<tr><td colspan="4" class="empty-state">No attendance records found</td></tr>';
+        }
+
+        // Render stats
+        const statsHtml = `
+          <div class="stat-card">
+            <div class="stat-value" style="color: #8ecf8e;">${stats.present}</div>
+            <div class="stat-label">Present</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" style="color: #ff9999;">${stats.absent}</div>
+            <div class="stat-label">Absent</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" style="color: #e8c068;">${stats.late}</div>
+            <div class="stat-label">Late</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" style="color: #7db8e8;">${stats.excused}</div>
+            <div class="stat-label">Excused</div>
+          </div>
+        `;
+        document.getElementById('statsRow').innerHTML = statsHtml;
+      } catch (error) {
+        console.error(error);
+        document.getElementById('attendanceTableBody').innerHTML =
+          `<tr><td colspan="4" class="empty-state">Error loading records: ${error.message}</td></tr>`;
+      }
+    }
+
+    function handleLogout() {
+      if (confirm('Are you sure you want to logout?')) {
+        window.location.href = '/auth/parent-logout';
+      }
+    }
+
+    loadAttendance();
+  </script>
+</body>
+</html>

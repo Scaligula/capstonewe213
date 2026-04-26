@@ -367,6 +367,364 @@ app.get('/api/admin/analytics', requireAdmin, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ===== Admin: Students =====
+app.get('/api/admin/students', requireAdmin, async (req, res) => {
+  try {
+    const Student = require('./models/Student');
+    const students = await Student.find({})
+      .populate('user', 'email')
+      .populate('guardians')
+      .lean();
+    res.json(students);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/students', requireAdmin, async (req, res) => {
+  try {
+    const Student = require('./models/Student');
+    const Guardian = require('./models/Guardian');
+    const { student: studentData, guardian: guardianData } = req.body;
+
+    if (!studentData || !guardianData) {
+      return res.status(400).json({ error: 'Student and guardian data are required' });
+    }
+
+    // Check if student ID already exists
+    const existingStudent = await Student.findOne({ studentId: studentData.studentId });
+    if (existingStudent) {
+      return res.status(409).json({ error: 'Student ID already exists' });
+    }
+
+    // Create guardian
+    const guardian = await Guardian.create({
+      firstName: guardianData.firstName,
+      middleName: guardianData.middleName,
+      lastName: guardianData.lastName,
+      suffix: guardianData.suffix,
+      contactNumber: guardianData.contactNumber,
+      email: guardianData.email
+    });
+
+    // Create student
+    const newStudent = await Student.create({
+      firstName: studentData.firstName,
+      middleName: studentData.middleName,
+      lastName: studentData.lastName,
+      suffix: studentData.suffix,
+      studentId: studentData.studentId,
+      course: studentData.course,
+      grade: studentData.grade,
+      guardians: [guardian._id]
+    });
+
+    guardian.students.push(newStudent._id);
+    await guardian.save();
+
+    const populatedStudent = await newStudent.populate('guardians');
+    res.status(201).json(populatedStudent);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/admin/students/:id', requireAdmin, async (req, res) => {
+  try {
+    const Student = require('./models/Student');
+    const student = await Student.findById(req.params.id)
+      .populate('user')
+      .populate('guardians')
+      .populate('enrolledCourses')
+      .populate('attendance')
+      .populate('feedbacks');
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    res.json(student);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/admin/students/:id', requireAdmin, async (req, res) => {
+  try {
+    const Student = require('./models/Student');
+    const Guardian = require('./models/Guardian');
+    const { student: studentData, guardian: guardianData } = req.body;
+
+    const student = await Student.findById(req.params.id);
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    // Update student data
+    if (studentData) {
+      student.firstName = studentData.firstName || student.firstName;
+      student.middleName = studentData.middleName !== undefined ? studentData.middleName : student.middleName;
+      student.lastName = studentData.lastName || student.lastName;
+      student.suffix = studentData.suffix !== undefined ? studentData.suffix : student.suffix;
+      student.course = studentData.course || student.course;
+      student.grade = studentData.grade || student.grade;
+      await student.save();
+    }
+
+    // Update guardian data
+    if (guardianData && student.guardians.length > 0) {
+      const guardian = await Guardian.findById(student.guardians[0]);
+      if (guardian) {
+        guardian.firstName = guardianData.firstName || guardian.firstName;
+        guardian.middleName = guardianData.middleName !== undefined ? guardianData.middleName : guardian.middleName;
+        guardian.lastName = guardianData.lastName || guardian.lastName;
+        guardian.suffix = guardianData.suffix !== undefined ? guardianData.suffix : guardian.suffix;
+        guardian.contactNumber = guardianData.contactNumber || guardian.contactNumber;
+        guardian.email = guardianData.email || guardian.email;
+        await guardian.save();
+      }
+    }
+
+    const updatedStudent = await student.populate('guardians');
+    res.json(updatedStudent);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/admin/students/:id', requireAdmin, async (req, res) => {
+  try {
+    const Student = require('./models/Student');
+    const Guardian = require('./models/Guardian');
+    const Attendance = require('./models/Attendance');
+    const TeacherFeedback = require('./models/TeacherFeedback');
+
+    const student = await Student.findById(req.params.id);
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    // Delete associated guardians
+    if (student.guardians) {
+      await Guardian.deleteMany({ _id: { $in: student.guardians } });
+    }
+
+    // Delete associated attendance records
+    if (student.attendance) {
+      await Attendance.deleteMany({ _id: { $in: student.attendance } });
+    }
+
+    // Delete associated feedback
+    if (student.feedbacks) {
+      await TeacherFeedback.deleteMany({ _id: { $in: student.feedbacks } });
+    }
+
+    await Student.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ===== Parent/Guardian Login =====
+// Middleware to check if user is parent or guardian
+function requireParent(req, res, next) {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
+  const available = req.user.roles?.length ? req.user.roles : [req.user.role];
+  const activeRole = req.session.activeRole && available.includes(req.session.activeRole)
+    ? req.session.activeRole
+    : req.user.role;
+  if (activeRole !== 'parent') return res.status(403).json({ error: 'Forbidden' });
+  next();
+}
+
+app.post('/auth/parent-login', async (req, res) => {
+  try {
+    const { email, studentId } = req.body;
+    if (!email || !studentId) {
+      return res.status(400).json({ error: 'Email and student ID are required' });
+    }
+
+    const Guardian = require('./models/Guardian');
+    const Student = require('./models/Student');
+
+    const guardian = await Guardian.findOne({ email: email.toLowerCase() });
+    if (!guardian) {
+      return res.status(401).json({ error: 'Guardian not found' });
+    }
+
+    const student = await Student.findOne({ studentId, _id: { $in: guardian.students } });
+    if (!student) {
+      return res.status(401).json({ error: 'Student not associated with this guardian' });
+    }
+
+    // Create session for parent
+    req.session.guardianId = guardian._id;
+    req.session.studentId = student._id;
+    req.session.parentRole = true;
+    req.session.isParent = true;
+
+    res.json({ success: true, message: 'Logged in successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/auth/parent-logout', (req, res) => {
+  req.session.guardianId = null;
+  req.session.studentId = null;
+  req.session.parentRole = null;
+  req.session.isParent = null;
+  res.redirect('/parent-login.html');
+});
+
+// ===== Parent API Routes =====
+app.get('/api/parent/dashboard', async (req, res) => {
+  try {
+    if (!req.session.guardianId || !req.session.studentId) {
+      return res.status(401).json({ error: 'Not authenticated as parent' });
+    }
+
+    const Student = require('./models/Student');
+    const Guardian = require('./models/Guardian');
+
+    const student = await Student.findById(req.session.studentId)
+      .populate('enrolledCourses', 'name subject')
+      .populate('guardians');
+    const guardian = await Guardian.findById(req.session.guardianId);
+
+    res.json({ student, guardian });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/parent/student/:studentId/grades', async (req, res) => {
+  try {
+    if (!req.session.guardianId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const Student = require('./models/Student');
+    const student = await Student.findById(req.params.studentId)
+      .populate({
+        path: 'enrolledCourses',
+        select: 'name subject'
+      });
+
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    // Verify the requesting guardian has access to this student
+    const Guardian = require('./models/Guardian');
+    const guardian = await Guardian.findById(req.session.guardianId);
+    if (!guardian.students.includes(student._id)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    res.json({
+      student: {
+        firstName: student.firstName,
+        lastName: student.lastName,
+        studentId: student.studentId,
+        courses: student.enrolledCourses,
+        currentGrade: student.grade
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/parent/student/:studentId/attendance', async (req, res) => {
+  try {
+    if (!req.session.guardianId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const Student = require('./models/Student');
+    const Attendance = require('./models/Attendance');
+    const Guardian = require('./models/Guardian');
+
+    const student = await Student.findById(req.params.studentId);
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    // Verify access
+    const guardian = await Guardian.findById(req.session.guardianId);
+    if (!guardian.students.includes(student._id)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const attendance = await Attendance.find({ student: student._id })
+      .populate('course', 'name subject')
+      .sort({ date: -1 });
+
+    res.json({
+      student: {
+        firstName: student.firstName,
+        lastName: student.lastName,
+        studentId: student.studentId
+      },
+      attendance
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/parent/student/:studentId/announcements', async (req, res) => {
+  try {
+    if (!req.session.guardianId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const Student = require('./models/Student');
+    const Announcement = require('./models/Announcement');
+    const Guardian = require('./models/Guardian');
+
+    const student = await Student.findById(req.params.studentId);
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    // Verify access
+    const guardian = await Guardian.findById(req.session.guardianId);
+    if (!guardian.students.includes(student._id)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const announcements = await Announcement.find({
+      $or: [
+        { course: { $in: student.enrolledCourses } },
+        { isGlobal: true }
+      ]
+    })
+      .populate('author', 'name')
+      .populate('course', 'name')
+      .sort({ createdAt: -1 });
+
+    res.json(announcements);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/parent/student/:studentId/feedback', async (req, res) => {
+  try {
+    if (!req.session.guardianId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const Student = require('./models/Student');
+    const TeacherFeedback = require('./models/TeacherFeedback');
+    const Guardian = require('./models/Guardian');
+
+    const student = await Student.findById(req.params.studentId);
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    // Verify access
+    const guardian = await Guardian.findById(req.session.guardianId);
+    if (!guardian.students.includes(student._id)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const feedbacks = await TeacherFeedback.find({ student: student._id })
+      .populate('teacher', 'name')
+      .populate('course', 'name')
+      .sort({ date: -1 });
+
+    res.json({
+      student: {
+        firstName: student.firstName,
+        lastName: student.lastName,
+        studentId: student.studentId
+      },
+      feedbacks
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Only redirect unknown non-file, non-API routes to Meba-Islamic-Institute.html
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/auth/')) {

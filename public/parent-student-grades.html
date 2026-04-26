@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Student Grades — MII Parent Portal</title>
+  <link rel="stylesheet" href="MII.css" />
+  <style>
+    .page-nav { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .back-btn {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border2);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.84rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .back-btn:hover { background: var(--surface3); }
+    .grades-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    .grades-table th {
+      background: var(--surface2);
+      padding: 0.75rem;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .grades-table td {
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.84rem;
+    }
+    .grades-table tr:hover { background: var(--surface2); }
+    .grade-badge {
+      display: inline-block;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+    .grade-excellent {
+      background: rgba(31, 122, 31, 0.2);
+      color: #8ecf8e;
+    }
+    .grade-good {
+      background: rgba(100, 150, 200, 0.2);
+      color: #7db8e8;
+    }
+    .grade-fair {
+      background: rgba(200, 150, 50, 0.2);
+      color: #e8c068;
+    }
+    .grade-poor {
+      background: rgba(255, 107, 107, 0.2);
+      color: #ff9999;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-brand">📚 MII Parent Portal</div>
+      <div class="topbar-spacer"></div>
+      <div class="topbar-actions">
+        <button class="logout-btn" onclick="handleLogout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div style="grid-column: 1 / -1; grid-row: 2; background: var(--bg); overflow-y: auto;">
+      <div class="main">
+        <div class="page-nav">
+          <button class="back-btn" onclick="window.location.href='/parent-dashboard.html'">← Back to Dashboard</button>
+        </div>
+
+        <div class="page-header">
+          <h1>Student Grades</h1>
+          <p id="gradesPeriodText">Academic Performance Overview</p>
+        </div>
+
+        <div class="card">
+          <table class="grades-table">
+            <thead>
+              <tr>
+                <th>Course</th>
+                <th>Subject</th>
+                <th>Grade</th>
+                <th>Performance</th>
+              </tr>
+            </thead>
+            <tbody id="gradesTableBody">
+              <tr><td colspan="4" class="empty-state">Loading grades...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadGrades() {
+      try {
+        // We need to get studentId from session somehow
+        // For now, let's fetch from parent dashboard first to get the studentId
+        const dashboardRes = await fetch('/api/parent/dashboard');
+        if (!dashboardRes.ok) {
+          if (dashboardRes.status === 401) {
+            window.location.href = '/parent-login.html';
+            return;
+          }
+          throw new Error('Failed to load dashboard');
+        }
+
+        const dashboardData = await dashboardRes.json();
+        const studentId = dashboardData.student._id;
+
+        const gradesRes = await fetch(`/api/parent/student/${studentId}/grades`);
+        if (!gradesRes.ok) throw new Error('Failed to load grades');
+
+        const gradesData = await gradesRes.json();
+        const { student, courses } = gradesData;
+
+        document.getElementById('gradesPeriodText').textContent = `${student.firstName}'s Current Grade: ${student.currentGrade}`;
+
+        if (!courses || courses.length === 0) {
+          document.getElementById('gradesTableBody').innerHTML =
+            '<tr><td colspan="4" class="empty-state">No courses enrolled yet</td></tr>';
+          return;
+        }
+
+        // Create a simple grades display
+        const gradeRows = courses.map(course => {
+          const gradeNum = parseFloat(student.currentGrade);
+          let performanceBadge = 'grade-fair';
+          if (gradeNum >= 90) performanceBadge = 'grade-excellent';
+          else if (gradeNum >= 80) performanceBadge = 'grade-good';
+          else if (gradeNum >= 70) performanceBadge = 'grade-fair';
+          else performanceBadge = 'grade-poor';
+
+          return `
+            <tr>
+              <td>${course.name || 'N/A'}</td>
+              <td>${course.subject || 'N/A'}</td>
+              <td><span class="grade-badge ${performanceBadge}">${student.currentGrade}</span></td>
+              <td>${gradeNum >= 90 ? 'Excellent' : gradeNum >= 80 ? 'Good' : gradeNum >= 70 ? 'Fair' : 'Needs Improvement'}</td>
+            </tr>
+          `;
+        }).join('');
+
+        document.getElementById('gradesTableBody').innerHTML = gradeRows;
+      } catch (error) {
+        console.error(error);
+        document.getElementById('gradesTableBody').innerHTML =
+          `<tr><td colspan="4" class="empty-state">Error loading grades: ${error.message}</td></tr>`;
+      }
+    }
+
+    function handleLogout() {
+      if (confirm('Are you sure you want to logout?')) {
+        window.location.href = '/auth/parent-logout';
+      }
+    }
+
+    loadGrades();
+  </script>
+</body>
+</html>

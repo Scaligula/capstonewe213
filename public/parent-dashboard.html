@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Parent Portal Dashboard — MII VLE</title>
+  <link rel="stylesheet" href="MII.css" />
+  <style>
+    .status-badge {
+      display: inline-block;
+      padding: 0.3rem 0.7rem;
+      background: var(--green-dim);
+      color: var(--green);
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .dashboard-card {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 12px;
+      padding: 1.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .dashboard-card:hover {
+      border-color: var(--green);
+      box-shadow: 0 4px 12px rgba(31, 122, 31, 0.1);
+    }
+    .card-icon {
+      font-size: 2rem;
+      margin-bottom: 0.75rem;
+    }
+    .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+    .card-description {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+    .card-stat {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--green);
+    }
+    .info-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .info-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+    }
+    .info-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+    .info-value {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .logout-btn {
+      background: #7a2020;
+      color: var(--white);
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .logout-btn:hover {
+      background: #8b2626;
+    }
+    @media (max-width: 768px) {
+      .info-section {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-brand">📚 MII Parent Portal</div>
+      <div class="topbar-spacer"></div>
+      <div class="topbar-actions">
+        <button class="logout-btn" onclick="handleLogout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div style="grid-column: 1 / -1; grid-row: 2; background: var(--bg); overflow-y: auto;">
+      <div class="main" style="padding: 1.5rem; max-width: 1400px; margin: 0 auto;">
+        <div class="page-header">
+          <h1>Welcome to Your Student Portal</h1>
+          <p id="welcomeText">Loading your information...</p>
+        </div>
+
+        <!-- Student Info Section -->
+        <div class="info-section" id="studentInfoSection">
+          <div class="info-card">
+            <div class="info-label">Student Name</div>
+            <div class="info-value" id="studentName">Loading...</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Student ID</div>
+            <div class="info-value" id="studentId">Loading...</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Course</div>
+            <div class="info-value" id="studentCourse">Loading...</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Current Grade</div>
+            <div class="info-value" id="studentGrade">Loading...</div>
+          </div>
+        </div>
+
+        <!-- Quick Access Cards -->
+        <div style="margin-top: 2rem;">
+          <h2 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--text);">Quick Access</h2>
+          <div class="dashboard-grid">
+            <!-- Grades Card -->
+            <div class="dashboard-card" onclick="navigate('/parent-student-grades.html')">
+              <div class="card-icon">📊</div>
+              <div class="card-title">Grades</div>
+              <div class="card-description">View your student's grades and academic performance</div>
+              <div class="card-stat" id="gradesStat">View</div>
+            </div>
+
+            <!-- Attendance Card -->
+            <div class="dashboard-card" onclick="navigate('/parent-student-attendance.html')">
+              <div class="card-icon">📅</div>
+              <div class="card-title">Attendance</div>
+              <div class="card-description">Check attendance records and history</div>
+              <div class="card-stat" id="attendanceStat">View</div>
+            </div>
+
+            <!-- Announcements Card -->
+            <div class="dashboard-card" onclick="navigate('/parent-student-announcements.html')">
+              <div class="card-icon">📢</div>
+              <div class="card-title">Announcements</div>
+              <div class="card-description">Stay updated with school announcements</div>
+              <div class="card-stat" id="announcementsStat">View</div>
+            </div>
+
+            <!-- Teacher Feedback Card -->
+            <div class="dashboard-card" onclick="navigate('/parent-student-feedback.html')">
+              <div class="card-icon">💬</div>
+              <div class="card-title">Teacher Feedback</div>
+              <div class="card-description">Read feedback from teachers</div>
+              <div class="card-stat" id="feedbackStat">View</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Guardian Info -->
+        <div style="margin-top: 2rem;">
+          <h2 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--text);">Guardian Information</h2>
+          <div class="info-section">
+            <div class="info-card">
+              <div class="info-label">Guardian Name</div>
+              <div class="info-value" id="guardianName">Loading...</div>
+            </div>
+            <div class="info-card">
+              <div class="info-label">Contact Number</div>
+              <div class="info-value" id="guardianPhone">Loading...</div>
+            </div>
+            <div class="info-card">
+              <div class="info-label">Email Address</div>
+              <div class="info-value" id="guardianEmail">Loading...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadDashboard() {
+      try {
+        const response = await fetch('/api/parent/dashboard', {
+          headers: { 'Accept': 'application/json' }
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            window.location.href = '/parent-login.html';
+            return;
+          }
+          throw new Error('Failed to load dashboard');
+        }
+
+        const data = await response.json();
+        const { student, guardian } = data;
+
+        // Populate student info
+        document.getElementById('welcomeText').textContent = `Welcome back! Here's a quick overview of ${student.firstName}'s academic progress.`;
+        document.getElementById('studentName').textContent = `${student.firstName} ${student.lastName}`;
+        document.getElementById('studentId').textContent = student.studentId;
+        document.getElementById('studentCourse').textContent = student.course;
+        document.getElementById('studentGrade').textContent = student.grade;
+
+        // Populate guardian info
+        const guardianName = [guardian.firstName, guardian.middleName, guardian.lastName, guardian.suffix]
+          .filter(Boolean)
+          .join(' ');
+        document.getElementById('guardianName').textContent = guardianName;
+        document.getElementById('guardianPhone').textContent = guardian.contactNumber;
+        document.getElementById('guardianEmail').textContent = guardian.email;
+      } catch (error) {
+        console.error(error);
+        alert('Error loading dashboard: ' + error.message);
+      }
+    }
+
+    function navigate(path) {
+      window.location.href = path;
+    }
+
+    function handleLogout() {
+      if (confirm('Are you sure you want to logout?')) {
+        window.location.href = '/auth/parent-logout';
+      }
+    }
+
+    // Load dashboard on page load
+    loadDashboard();
+  </script>
+</body>
+</html>

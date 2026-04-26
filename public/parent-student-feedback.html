@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Teacher Feedback — MII Parent Portal</title>
+  <link rel="stylesheet" href="MII.css" />
+  <style>
+    .back-btn {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border2);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.84rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-bottom: 1rem;
+    }
+    .back-btn:hover { background: var(--surface3); }
+    .feedback-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .feedback-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      transition: all 0.2s;
+    }
+    .feedback-item:hover {
+      border-color: var(--green);
+      box-shadow: 0 4px 12px rgba(31, 122, 31, 0.1);
+    }
+    .feedback-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.75rem;
+    }
+    .feedback-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .feedback-type {
+      display: inline-block;
+      background: var(--green-dim);
+      color: var(--green);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .feedback-meta {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .feedback-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .feedback-content {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: var(--text);
+      word-wrap: break-word;
+      white-space: pre-wrap;
+      background: var(--surface2);
+      padding: 0.75rem;
+      border-radius: 6px;
+      border-left: 3px solid var(--green);
+    }
+    .empty-state {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-brand">📚 MII Parent Portal</div>
+      <div class="topbar-spacer"></div>
+      <div class="topbar-actions">
+        <button class="logout-btn" onclick="handleLogout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div style="grid-column: 1 / -1; grid-row: 2; background: var(--bg); overflow-y: auto;">
+      <div class="main">
+        <button class="back-btn" onclick="window.location.href='/parent-dashboard.html'">← Back to Dashboard</button>
+
+        <div class="page-header">
+          <h1>Teacher Feedback</h1>
+          <p>Read feedback and comments from your student's teachers</p>
+        </div>
+
+        <div id="feedbackList" class="feedback-list">
+          <div class="empty-state">Loading feedback...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function formatDate(dateString) {
+      const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+      return new Date(dateString).toLocaleDateString('en-US', options);
+    }
+
+    function getTypeColor(type) {
+      const colors = {
+        'General': '#7db8e8',
+        'Behavioral': '#e8c068',
+        'Academic': '#8ecf8e',
+        'Other': '#9d8eb3'
+      };
+      return colors[type] || '#9d8eb3';
+    }
+
+    async function loadFeedback() {
+      try {
+        const dashboardRes = await fetch('/api/parent/dashboard');
+        if (!dashboardRes.ok) {
+          if (dashboardRes.status === 401) {
+            window.location.href = '/parent-login.html';
+            return;
+          }
+          throw new Error('Failed to load dashboard');
+        }
+
+        const dashboardData = await dashboardRes.json();
+        const studentId = dashboardData.student._id;
+
+        const feedbackRes = await fetch(`/api/parent/student/${studentId}/feedback`);
+        if (!feedbackRes.ok) throw new Error('Failed to load feedback');
+
+        const feedbackData = await feedbackRes.json();
+        const { feedbacks } = feedbackData;
+
+        if (!feedbacks || feedbacks.length === 0) {
+          document.getElementById('feedbackList').innerHTML =
+            '<div class="empty-state">No teacher feedback available yet</div>';
+          return;
+        }
+
+        const feedbackHTML = feedbacks.map(feedback => `
+          <div class="feedback-item">
+            <div class="feedback-header">
+              <div>
+                <div class="feedback-title">${feedback.teacher?.name || 'Unknown Teacher'}</div>
+                <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.25rem;">
+                  ${feedback.course?.name || 'General Feedback'}
+                </div>
+              </div>
+              <div class="feedback-type">${feedback.type}</div>
+            </div>
+            <div class="feedback-meta">
+              <div class="feedback-meta-item">
+                📅 ${formatDate(feedback.date)}
+              </div>
+            </div>
+            <div class="feedback-content">${feedback.feedback}</div>
+          </div>
+        `).join('');
+
+        document.getElementById('feedbackList').innerHTML = feedbackHTML;
+      } catch (error) {
+        console.error(error);
+        document.getElementById('feedbackList').innerHTML =
+          `<div class="empty-state">Error loading feedback: ${error.message}</div>`;
+      }
+    }
+
+    function handleLogout() {
+      if (confirm('Are you sure you want to logout?')) {
+        window.location.href = '/auth/parent-logout';
+      }
+    }
+
+    loadFeedback();
+  </script>
+</body>
+</html>

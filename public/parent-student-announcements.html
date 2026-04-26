@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Announcements — MII Parent Portal</title>
+  <link rel="stylesheet" href="MII.css" />
+  <style>
+    .back-btn {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border2);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.84rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-bottom: 1rem;
+    }
+    .back-btn:hover { background: var(--surface3); }
+    .announcement-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .announcement-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      transition: all 0.2s;
+    }
+    .announcement-item:hover {
+      border-color: var(--green);
+      box-shadow: 0 4px 12px rgba(31, 122, 31, 0.1);
+    }
+    .announcement-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.75rem;
+    }
+    .announcement-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .announcement-meta {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+    .announcement-author {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .announcement-date {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .announcement-course {
+      display: inline-block;
+      background: var(--green-dim);
+      color: var(--green);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .announcement-content {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: var(--text);
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-brand">📚 MII Parent Portal</div>
+      <div class="topbar-spacer"></div>
+      <div class="topbar-actions">
+        <button class="logout-btn" onclick="handleLogout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div style="grid-column: 1 / -1; grid-row: 2; background: var(--bg); overflow-y: auto;">
+      <div class="main">
+        <button class="back-btn" onclick="window.location.href='/parent-dashboard.html'">← Back to Dashboard</button>
+
+        <div class="page-header">
+          <h1>Announcements</h1>
+          <p>Latest announcements for your student's courses</p>
+        </div>
+
+        <div id="announcementsList" class="announcement-list">
+          <div class="empty-state">Loading announcements...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function formatDate(dateString) {
+      const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+      return new Date(dateString).toLocaleDateString('en-US', options);
+    }
+
+    async function loadAnnouncements() {
+      try {
+        const dashboardRes = await fetch('/api/parent/dashboard');
+        if (!dashboardRes.ok) {
+          if (dashboardRes.status === 401) {
+            window.location.href = '/parent-login.html';
+            return;
+          }
+          throw new Error('Failed to load dashboard');
+        }
+
+        const dashboardData = await dashboardRes.json();
+        const studentId = dashboardData.student._id;
+
+        const announcementsRes = await fetch(`/api/parent/student/${studentId}/announcements`);
+        if (!announcementsRes.ok) throw new Error('Failed to load announcements');
+
+        const announcements = await announcementsRes.json();
+
+        if (!announcements || announcements.length === 0) {
+          document.getElementById('announcementsList').innerHTML =
+            '<div class="empty-state">No announcements available</div>';
+          return;
+        }
+
+        const announcementHTML = announcements.map(announcement => `
+          <div class="announcement-item">
+            <div class="announcement-header">
+              <div class="announcement-title">${announcement.title}</div>
+            </div>
+            <div class="announcement-meta">
+              <div class="announcement-author">
+                👤 ${announcement.author?.name || 'Unknown Author'}
+              </div>
+              <div class="announcement-date">
+                📅 ${formatDate(announcement.createdAt)}
+              </div>
+              ${announcement.course ? `<div class="announcement-course">${announcement.course.name}</div>` : ''}
+            </div>
+            <div class="announcement-content">${announcement.content}</div>
+          </div>
+        `).join('');
+
+        document.getElementById('announcementsList').innerHTML = announcementHTML;
+      } catch (error) {
+        console.error(error);
+        document.getElementById('announcementsList').innerHTML =
+          `<div class="empty-state">Error loading announcements: ${error.message}</div>`;
+      }
+    }
+
+    function handleLogout() {
+      if (confirm('Are you sure you want to logout?')) {
+        window.location.href = '/auth/parent-logout';
+      }
+    }
+
+    loadAnnouncements();
+  </script>
+</body>
+</html>

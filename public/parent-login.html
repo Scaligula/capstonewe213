@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Parent Portal Login — MII VLE</title>
+  <link rel="stylesheet" href="MII.css" />
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--bg) 0%, var(--surface) 100%);
+    }
+    .login-container {
+      width: min(420px, 96vw);
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 14px;
+      padding: 2rem;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+    .login-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .login-header .logo {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .login-header h1 {
+      font-size: 1.5rem;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+    .login-header p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--text-muted);
+    }
+    .form-group input {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px var(--green-dim);
+    }
+    .form-group input::placeholder {
+      color: var(--text-dim);
+    }
+    .login-btn {
+      width: 100%;
+      padding: 0.75rem;
+      background: var(--green);
+      color: var(--white);
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-top: 0.5rem;
+    }
+    .login-btn:hover {
+      background: var(--green-hover);
+      transform: translateY(-2px);
+    }
+    .login-btn:active {
+      transform: translateY(0);
+    }
+    .login-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .error-message {
+      background: rgba(255, 107, 107, 0.1);
+      border: 1px solid rgba(255, 107, 107, 0.3);
+      color: #ff6b6b;
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    .error-message.show {
+      display: block;
+    }
+    .success-message {
+      background: rgba(31, 122, 31, 0.1);
+      border: 1px solid rgba(31, 122, 31, 0.3);
+      color: var(--green);
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    .success-message.show {
+      display: block;
+    }
+    .instructions {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.8rem;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+    .instructions strong {
+      color: var(--text);
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+    .footer-text {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-header">
+      <div class="logo">🧒👨‍👩‍👧</div>
+      <h1>Parent Portal</h1>
+      <p>Meba Islamic Institute</p>
+    </div>
+
+    <div class="instructions">
+      <strong>How to Login:</strong>
+      Use your guardian email address and your child's student ID number to access their academic information.
+    </div>
+
+    <div class="error-message" id="errorMessage"></div>
+    <div class="success-message" id="successMessage"></div>
+
+    <form id="loginForm" onsubmit="handleParentLogin(event)">
+      <div class="form-group">
+        <label for="email">Guardian Email Address</label>
+        <input
+          type="email"
+          id="email"
+          placeholder="your.email@example.com"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="studentId">Student ID Number</label>
+        <input
+          type="text"
+          id="studentId"
+          placeholder="Enter student ID"
+          required
+        />
+      </div>
+
+      <button type="submit" class="login-btn" id="submitBtn">
+        <span id="btnText">Login to Parent Portal</span>
+        <span id="btnSpinner" style="display: none;">🔄 Authenticating...</span>
+      </button>
+    </form>
+
+    <div class="footer-text">
+      <p>Questions? Contact the administration office.</p>
+      <p>© 2026 Meba Islamic Institute. All rights reserved.</p>
+    </div>
+  </div>
+
+  <script>
+    async function handleParentLogin(event) {
+      event.preventDefault();
+
+      const email = document.getElementById('email').value.trim();
+      const studentId = document.getElementById('studentId').value.trim();
+      const submitBtn = document.getElementById('submitBtn');
+      const errorMsg = document.getElementById('errorMessage');
+      const successMsg = document.getElementById('successMessage');
+
+      // Clear messages
+      errorMsg.classList.remove('show');
+      successMsg.classList.remove('show');
+
+      // Disable button
+      submitBtn.disabled = true;
+      document.getElementById('btnText').style.display = 'none';
+      document.getElementById('btnSpinner').style.display = 'inline';
+
+      try {
+        const response = await fetch('/auth/parent-login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email, studentId })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Login failed');
+        }
+
+        // Show success message
+        successMsg.textContent = 'Login successful! Redirecting...';
+        successMsg.classList.add('show');
+
+        // Redirect to parent dashboard
+        setTimeout(() => {
+          window.location.href = '/parent-dashboard.html';
+        }, 1500);
+      } catch (error) {
+        errorMsg.textContent = error.message;
+        errorMsg.classList.add('show');
+
+        // Re-enable button
+        submitBtn.disabled = false;
+        document.getElementById('btnText').style.display = 'inline';
+        document.getElementById('btnSpinner').style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>

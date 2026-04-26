@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Student Management — MII VLE</title>
+  <link rel="stylesheet" href="MII.css" />
+  <style>
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65); z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border2);
+      border-radius: 14px; padding: 1.5rem;
+      width: min(600px, 96vw); max-height: 85vh;
+      overflow-y: auto; position: relative;
+    }
+    .modal-close {
+      position: absolute; top: 1rem; right: 1rem;
+      background: none; border: none; color: var(--text-muted);
+      font-size: 1.1rem; cursor: pointer;
+    }
+    .modal-title { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.3rem; color: var(--text-muted); }
+    .form-group input, .form-group select {
+      width: 100%; padding: 0.45rem 0.75rem;
+      background: var(--surface2); border: 1px solid var(--border2);
+      border-radius: 6px; color: var(--text); font-size: 0.84rem;
+      font-family: inherit; transition: border-color 0.15s;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline: none; border-color: var(--green); box-shadow: 0 0 0 2px var(--green-dim);
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+    .form-section { border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 1rem; }
+    .modal-footer { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem; }
+    .btn {
+      padding: 0.5rem 1rem; border: none; border-radius: 6px;
+      font-size: 0.84rem; font-weight: 600; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-primary { background: var(--green); color: var(--white); }
+    .btn-primary:hover { background: var(--green-hover); }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border2); }
+    .btn-secondary:hover { background: var(--surface3); }
+    .btn-danger { background: #7a2020; color: var(--white); }
+    .btn-danger:hover { background: #8b2626; }
+    .search-bar { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .search-input {
+      flex: 1; padding: 0.45rem 0.75rem;
+      background: var(--surface2); border: 1px solid var(--border2);
+      border-radius: 6px; color: var(--text); font-size: 0.84rem;
+    }
+    .search-input:focus { outline: none; border-color: var(--green); }
+    .students-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    .students-table th {
+      background: var(--surface2); padding: 0.75rem;
+      text-align: left; font-weight: 600; font-size: 0.8rem;
+      color: var(--text-muted); border-bottom: 1px solid var(--border);
+    }
+    .students-table td {
+      padding: 0.75rem; border-bottom: 1px solid var(--border);
+      font-size: 0.84rem;
+    }
+    .students-table tr:hover { background: var(--surface2); }
+    .student-name { color: var(--green); cursor: pointer; font-weight: 600; }
+    .student-name:hover { text-decoration: underline; }
+    .action-cell { display: flex; gap: 0.5rem; }
+    .icon-btn {
+      background: none; border: none; color: var(--text-muted);
+      cursor: pointer; font-size: 0.9rem; padding: 0.25rem;
+      transition: color 0.15s;
+    }
+    .icon-btn:hover { color: var(--green); }
+    .icon-btn.delete:hover { color: #ff6b6b; }
+    .empty-state {
+      text-align: center; padding: 2rem;
+      color: var(--text-muted);
+    }
+    .badge {
+      display: inline-block; padding: 0.2rem 0.5rem;
+      background: var(--green-dim); color: var(--green);
+      border-radius: 4px; font-size: 0.75rem;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-brand">📚 MII VLE</div>
+      <div class="topbar-spacer"></div>
+      <div class="topbar-actions">
+        <div class="topbar-avatar" id="avatarBtn"></div>
+        <div>
+          <div class="topbar-name" id="userName">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <div class="nav-section-label">Administration</div>
+      <a class="nav-item" href="admin-dashboard.html" style="display: flex; align-items: center; gap: 0.65rem; padding: 0.5rem 1rem; color: var(--text-muted); font-size: 0.84rem; font-weight: 500; cursor: pointer; border-radius: 0; transition: all 0.15s; border-left: 2px solid transparent;"><span style="font-size: 1rem; width: 18px; text-align: center;">⊞</span> Dashboard</a>
+      <a class="nav-item" href="admin-users.html" style="display: flex; align-items: center; gap: 0.65rem; padding: 0.5rem 1rem; color: var(--text-muted); font-size: 0.84rem; font-weight: 500; cursor: pointer; border-radius: 0; transition: all 0.15s; border-left: 2px solid transparent;"><span style="font-size: 1rem; width: 18px; text-align: center;">👥</span> User Management</a>
+      <a class="nav-item active" href="admin-students.html" style="display: flex; align-items: center; gap: 0.65rem; padding: 0.5rem 1rem; background: var(--green-dim); color: #8ecf8e; font-size: 0.84rem; font-weight: 500; cursor: pointer; border-radius: 0; transition: all 0.15s; border-left: 2px solid var(--green);"><span style="font-size: 1rem; width: 18px; text-align: center;">🧒</span> Students</a>
+      <div style="height: 1px; background: var(--border); margin: 0.5rem 0;"></div>
+      <div class="nav-section-label">Account</div>
+      <a class="nav-item" href="profile.html" style="display: flex; align-items: center; gap: 0.65rem; padding: 0.5rem 1rem; color: var(--text-muted); font-size: 0.84rem; font-weight: 500; cursor: pointer; border-radius: 0; transition: all 0.15s; border-left: 2px solid transparent;"><span style="font-size: 1rem; width: 18px; text-align: center;">👤</span> Profile</a>
+      <a class="nav-item" href="settings.html" style="display: flex; align-items: center; gap: 0.65rem; padding: 0.5rem 1rem; color: var(--text-muted); font-size: 0.84rem; font-weight: 500; cursor: pointer; border-radius: 0; transition: all 0.15s; border-left: 2px solid transparent;"><span style="font-size: 1rem; width: 18px; text-align: center;">⚙</span> Settings</a>
+      <a class="nav-item" href="/auth/logout" style="display: flex; align-items: center; gap: 0.65rem; padding: 0.5rem 1rem; color: var(--text-muted); font-size: 0.84rem; font-weight: 500; cursor: pointer; border-radius: 0; transition: all 0.15s; border-left: 2px solid transparent;"><span style="font-size: 1rem; width: 18px; text-align: center;">⏻</span> Sign Out</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main">
+      <div class="page-header">
+        <h1>Student Management</h1>
+        <p>Manage all students and their information</p>
+      </div>
+
+      <div class="card">
+        <div class="search-bar">
+          <input type="text" class="search-input" id="searchInput" placeholder="Search by name or ID...">
+          <button class="btn btn-primary" onclick="openAddStudentModal()">+ Add Student</button>
+        </div>
+
+        <table class="students-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Student ID</th>
+              <th>Course</th>
+              <th>Grade</th>
+              <th>Guardians</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="studentTableBody">
+            <tr><td colspan="6" class="empty-state">Loading students...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Student Modal -->
+  <div class="modal-overlay" id="studentModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeStudentModal()">✕</button>
+      <div class="modal-title" id="studentModalTitle">Add New Student</div>
+
+      <form id="studentForm" onsubmit="handleSaveStudent(event)">
+        <!-- Student Information -->
+        <div class="form-section" style="border-top: none; margin-top: 0;">
+          <h4 style="margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-muted);">Student Information</h4>
+
+          <div class="form-row-3">
+            <div class="form-group">
+              <label>First Name *</label>
+              <input type="text" id="firstName" required>
+            </div>
+            <div class="form-group">
+              <label>Middle Name</label>
+              <input type="text" id="middleName">
+            </div>
+            <div class="form-group">
+              <label>Last Name *</label>
+              <input type="text" id="lastName" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Suffix</label>
+              <input type="text" id="suffix" placeholder="e.g., Jr., Sr.">
+            </div>
+            <div class="form-group">
+              <label>Student ID Number *</label>
+              <input type="text" id="studentId" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Course *</label>
+              <input type="text" id="course" required>
+            </div>
+            <div class="form-group">
+              <label>Grade *</label>
+              <input type="text" id="grade" required>
+            </div>
+          </div>
+        </div>
+
+        <!-- Guardian Information -->
+        <div class="form-section">
+          <h4 style="margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-muted);">Guardian Information</h4>
+
+          <div class="form-row-3">
+            <div class="form-group">
+              <label>Guardian First Name *</label>
+              <input type="text" id="guardianFirstName" required>
+            </div>
+            <div class="form-group">
+              <label>Guardian Middle Name</label>
+              <input type="text" id="guardianMiddleName">
+            </div>
+            <div class="form-group">
+              <label>Guardian Last Name *</label>
+              <input type="text" id="guardianLastName" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Guardian Suffix</label>
+              <input type="text" id="guardianSuffix" placeholder="e.g., Jr., Sr.">
+            </div>
+            <div class="form-group">
+              <label>Guardian Contact Number *</label>
+              <input type="text" id="guardianContactNumber" required placeholder="+1 (555) 000-0000">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Guardian Email *</label>
+            <input type="email" id="guardianEmail" required>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeStudentModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Student</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Student Detail Modal -->
+  <div class="modal-overlay" id="detailModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeDetailModal()">✕</button>
+      <div class="modal-title">Student Details</div>
+
+      <div id="detailContent" style="font-size: 0.84rem; line-height: 1.8;">
+        <!-- Populated dynamically -->
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeDetailModal()">Close</button>
+        <button class="btn btn-primary" onclick="editCurrentStudent()">Edit</button>
+        <button class="btn btn-danger" onclick="deleteCurrentStudent()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    let currentStudentId = null;
+    let allStudents = [];
+
+    async function loadStudents() {
+      try {
+        const res = await fetch('/api/admin/students', {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (!res.ok) {
+          if (res.status === 401) window.location.href = '/';
+          throw new Error('Failed to load students');
+        }
+        allStudents = await res.json();
+        renderStudents(allStudents);
+      } catch (err) {
+        console.error(err);
+        document.getElementById('studentTableBody').innerHTML = '<tr><td colspan="6" class="empty-state">Error loading students</td></tr>';
+      }
+    }
+
+    function renderStudents(students) {
+      const tbody = document.getElementById('studentTableBody');
+      if (!students.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No students found</td></tr>';
+        return;
+      }
+      tbody.innerHTML = students.map(s => `
+        <tr>
+          <td><span class="student-name" onclick="viewStudentDetail('${s._id}')">${s.firstName} ${s.lastName}</span></td>
+          <td>${s.studentId}</td>
+          <td>${s.course}</td>
+          <td>${s.grade}</td>
+          <td>${s.guardians?.length || 0} guardian(s)</td>
+          <td class="action-cell">
+            <button class="icon-btn" onclick="viewStudentDetail('${s._id}')" title="View">👁️</button>
+            <button class="icon-btn" onclick="editStudent('${s._id}')" title="Edit">✏️</button>
+            <button class="icon-btn delete" onclick="deleteStudent('${s._id}')" title="Delete">🗑️</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase();
+      const filtered = allStudents.filter(s =>
+        `${s.firstName} ${s.lastName}`.toLowerCase().includes(query) ||
+        s.studentId.toLowerCase().includes(query)
+      );
+      renderStudents(filtered);
+    });
+
+    function openAddStudentModal() {
+      currentStudentId = null;
+      document.getElementById('studentModalTitle').textContent = 'Add New Student';
+      document.getElementById('studentForm').reset();
+      document.getElementById('studentModal').classList.add('open');
+    }
+
+    function closeStudentModal() {
+      document.getElementById('studentModal').classList.remove('open');
+      document.getElementById('studentForm').reset();
+      currentStudentId = null;
+    }
+
+    function closeDetailModal() {
+      document.getElementById('detailModal').classList.remove('open');
+    }
+
+    async function handleSaveStudent(event) {
+      event.preventDefault();
+
+      const studentData = {
+        firstName: document.getElementById('firstName').value,
+        middleName: document.getElementById('middleName').value,
+        lastName: document.getElementById('lastName').value,
+        suffix: document.getElementById('suffix').value,
+        studentId: document.getElementById('studentId').value,
+        course: document.getElementById('course').value,
+        grade: document.getElementById('grade').value
+      };
+
+      const guardianData = {
+        firstName: document.getElementById('guardianFirstName').value,
+        middleName: document.getElementById('guardianMiddleName').value,
+        lastName: document.getElementById('guardianLastName').value,
+        suffix: document.getElementById('guardianSuffix').value,
+        contactNumber: document.getElementById('guardianContactNumber').value,
+        email: document.getElementById('guardianEmail').value
+      };
+
+      try {
+        let url = '/api/admin/students';
+        let method = 'POST';
+
+        if (currentStudentId) {
+          url = `/api/admin/students/${currentStudentId}`;
+          method = 'PUT';
+        }
+
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ student: studentData, guardian: guardianData })
+        });
+
+        if (!res.ok) throw new Error('Failed to save student');
+
+        closeStudentModal();
+        await loadStudents();
+        alert('Student saved successfully!');
+      } catch (err) {
+        console.error(err);
+        alert('Error saving student: ' + err.message);
+      }
+    }
+
+    async function viewStudentDetail(studentId) {
+      try {
+        const res = await fetch(`/api/admin/students/${studentId}`);
+        if (!res.ok) throw new Error('Failed to load student');
+        const student = await res.json();
+        currentStudentId = studentId;
+
+        let guardianInfo = 'No guardians';
+        if (student.guardians?.length) {
+          guardianInfo = student.guardians.map(g =>
+            `<div style="margin-bottom: 0.5rem;">
+              <strong>${g.firstName} ${g.middleName || ''} ${g.lastName} ${g.suffix || ''}</strong><br>
+              📞 ${g.contactNumber}<br>
+              ✉️ ${g.email}
+            </div>`
+          ).join('');
+        }
+
+        const detail = `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <strong>First Name:</strong> ${student.firstName}<br>
+              <strong>Middle Name:</strong> ${student.middleName || 'N/A'}<br>
+              <strong>Last Name:</strong> ${student.lastName}<br>
+              <strong>Suffix:</strong> ${student.suffix || 'N/A'}
+            </div>
+            <div>
+              <strong>Student ID:</strong> ${student.studentId}<br>
+              <strong>Course:</strong> ${student.course}<br>
+              <strong>Grade:</strong> ${student.grade}
+            </div>
+          </div>
+          <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+            <strong style="display: block; margin-bottom: 0.5rem;">Guardians:</strong>
+            ${guardianInfo}
+          </div>
+        `;
+
+        document.getElementById('detailContent').innerHTML = detail;
+        document.getElementById('detailModal').classList.add('open');
+      } catch (err) {
+        console.error(err);
+        alert('Error loading student details');
+      }
+    }
+
+    async function editStudent(studentId) {
+      try {
+        const res = await fetch(`/api/admin/students/${studentId}`);
+        if (!res.ok) throw new Error('Failed to load student');
+        const student = await res.json();
+        currentStudentId = studentId;
+
+        document.getElementById('studentModalTitle').textContent = 'Edit Student';
+        document.getElementById('firstName').value = student.firstName;
+        document.getElementById('middleName').value = student.middleName || '';
+        document.getElementById('lastName').value = student.lastName;
+        document.getElementById('suffix').value = student.suffix || '';
+        document.getElementById('studentId').value = student.studentId;
+        document.getElementById('course').value = student.course;
+        document.getElementById('grade').value = student.grade;
+
+        if (student.guardians?.length) {
+          const guardian = student.guardians[0];
+          document.getElementById('guardianFirstName').value = guardian.firstName;
+          document.getElementById('guardianMiddleName').value = guardian.middleName || '';
+          document.getElementById('guardianLastName').value = guardian.lastName;
+          document.getElementById('guardianSuffix').value = guardian.suffix || '';
+          document.getElementById('guardianContactNumber').value = guardian.contactNumber;
+          document.getElementById('guardianEmail').value = guardian.email;
+        }
+
+        closeDetailModal();
+        document.getElementById('studentModal').classList.add('open');
+      } catch (err) {
+        console.error(err);
+        alert('Error loading student for edit');
+      }
+    }
+
+    function editCurrentStudent() {
+      if (currentStudentId) {
+        editStudent(currentStudentId);
+      }
+    }
+
+    async function deleteStudent(studentId) {
+      if (!confirm('Are you sure you want to delete this student? This action cannot be undone.')) return;
+
+      try {
+        const res = await fetch(`/api/admin/students/${studentId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete student');
+        await loadStudents();
+        alert('Student deleted successfully!');
+      } catch (err) {
+        console.error(err);
+        alert('Error deleting student');
+      }
+    }
+
+    function deleteCurrentStudent() {
+      if (currentStudentId) {
+        closeDetailModal();
+        deleteStudent(currentStudentId);
+      }
+    }
+
+    // Initialize
+    loadStudents();
+    initializeRoleBasedNav('admin');
+  </script>
+</body>
+</html>
