@@ -15,7 +15,12 @@ const userSchema = new mongoose.Schema({
   },
   children: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   permissions: [String],
-  roles: [{ type: String, enum: ['student', 'parent', 'admin', 'staff'] }]
+  roles: [{ type: String, enum: ['student', 'parent', 'admin', 'staff'] }],
+  // Admin-specific fields
+  adminLevel: { type: String, enum: ['regular', 'super'], default: null },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date, default: null },
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

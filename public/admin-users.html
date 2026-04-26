@@ -125,6 +125,7 @@
     <a class="nav-item" href="admin-dashboard.html"><span class="nav-icon">⊞</span> Dashboard</a>
     <a class="nav-item active" href="admin-users.html"><span class="nav-icon">👥</span> User Management</a>
     <a class="nav-item" href="admin-students.html"><span class="nav-icon">🧒</span> Students</a>
+    <a class="nav-item" id="adminMgmtNav" href="admin-admins.html" style="display: none;"><span class="nav-icon">👑</span> Admin Management</a>
     <div class="nav-divider"></div>
     <div class="nav-section-label">Account</div>
     <a class="nav-item" href="profile.html"><span class="nav-icon">👤</span> Profile</a>
@@ -339,15 +340,18 @@
 
 <!-- ===== DELETE CONFIRM MODAL ===== -->
 <div class="modal-overlay" id="deleteModal">
-  <div class="modal" style="max-width:400px;">
+  <div class="modal" style="max-width:450px;">
     <button class="modal-close" onclick="closeModal('deleteModal')">✕</button>
     <div class="modal-title">Delete Account</div>
     <p style="font-size:0.84rem;color:var(--text-muted);margin-bottom:1rem;">
-      Permanently delete the account for <strong style="color:var(--text)" id="deleteUserName"></strong>? This cannot be undone.
+      Delete the account for <strong style="color:var(--text)" id="deleteUserName"></strong>?
     </p>
+    <div id="deleteOptions" style="margin-bottom:1rem;">
+      <!-- Will be populated dynamically based on admin level -->
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost btn-sm" onclick="closeModal('deleteModal')">Cancel</button>
-      <button class="btn btn-sm" style="background:#8b2020;color:#fff;" onclick="confirmDelete()">Delete Account</button>
+      <button class="btn btn-sm" style="background:#8b2020;color:#fff;" id="deleteBtn" onclick="confirmDelete()">Delete Account</button>
     </div>
   </div>
 </div>
@@ -738,15 +742,67 @@ async function confirmReset() {
 function openDelete(userId, name) {
   activeDeleteId = userId;
   document.getElementById('deleteUserName').textContent = name;
+
+  // Build delete options based on admin level
+  let deleteOptions = '<p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">';
+
+  if (currentUser && currentUser.adminLevel === 'super') {
+    // Super admin gets both options
+    deleteOptions += `
+      <label style="display:flex;gap:0.5rem;margin-bottom:0.75rem;align-items:center;">
+        <input type="radio" name="deleteType" value="soft" checked>
+        <span>
+          <strong>Soft Delete</strong> (can be restored)<br>
+          <small style="color:var(--text-dim);">This account can be restored by you later</small>
+        </span>
+      </label>
+      <label style="display:flex;gap:0.5rem;align-items:center;">
+        <input type="radio" name="deleteType" value="hard">
+        <span>
+          <strong>Permanent Delete</strong> (cannot be undone)<br>
+          <small style="color:var(--text-dim);">This account will be permanently removed</small>
+        </span>
+      </label>
+    `;
+  } else {
+    // Regular admin only gets soft delete
+    deleteOptions += `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:0.75rem;">
+        <strong>Soft Delete</strong><br>
+        <small style="color:var(--text-muted);">This account will be soft deleted and can be restored by a super admin.</small>
+      </div>
+    `;
+  }
+
+  deleteOptions += '</p>';
+  document.getElementById('deleteOptions').innerHTML = deleteOptions;
   openModal('deleteModal');
 }
 
+let deleteHardDelete = false;
+
 async function confirmDelete() {
-  const r = await fetch(`/api/admin/users/${activeDeleteId}`, { method: 'DELETE' });
+  // Check delete type if super admin
+  if (currentUser && currentUser.adminLevel === 'super') {
+    const deleteType = document.querySelector('input[name="deleteType"]:checked')?.value;
+    deleteHardDelete = deleteType === 'hard';
+  } else {
+    deleteHardDelete = false;
+  }
+
+  const r = await fetch(`/api/admin/users/${activeDeleteId}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hardDelete: deleteHardDelete })
+  });
+
   if (r.ok) {
     closeModal('deleteModal');
     await loadUsers();
-    showGlobalAlert('Account deleted.');
+    const message = deleteHardDelete
+      ? 'Account permanently deleted.'
+      : 'Account soft deleted (can be restored by super admin).';
+    showGlobalAlert(message);
   } else {
     const d = await r.json();
     showGlobalAlert(d.error || 'Failed to delete account.', true);

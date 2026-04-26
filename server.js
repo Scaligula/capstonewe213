@@ -44,7 +44,13 @@ passport.deserializeUser((id, done) => {
 // Users who can log in as multiple roles. Key = email, value = [roles] (first is default).
 const DUAL_ROLE_USERS = {
   'rodriguezdale364@gmail.com': ['student', 'admin'],
+  'prenneesebig@gmail.com': ['admin'],
 };
+
+// Super admin emails
+const SUPER_ADMIN_EMAILS = [
+  'prenneesebig@gmail.com',
+];
 
 // External (non-mii.edu.ph) emails allowed as student-only accounts.
 const ALLOWED_STUDENT_EMAILS = [
@@ -72,6 +78,8 @@ passport.use(new GoogleStrategy({
     }
     let user = await User.findOne({ email });
     const dualRoles = DUAL_ROLE_USERS[email];
+    const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(email.toLowerCase());
+
     if (!user) {
       user = new User({
         email,
@@ -82,6 +90,7 @@ passport.use(new GoogleStrategy({
         permissions: dualRoles?.includes('admin')
           ? ['manage_users', 'manage_courses', 'manage_announcements']
           : [],
+        adminLevel: dualRoles?.includes('admin') && isSuperAdmin ? 'super' : null,
       });
       await user.save();
     } else {
@@ -89,6 +98,12 @@ passport.use(new GoogleStrategy({
       if (dualRoles && (!user.roles || user.roles.length < 2)) {
         user.roles = dualRoles;
         user.permissions = ['manage_users', 'manage_courses', 'manage_announcements'];
+        user.adminLevel = isSuperAdmin ? 'super' : 'regular';
+        await user.save();
+      }
+      // Update admin level if needed
+      if (user.role === 'admin' && isSuperAdmin && user.adminLevel !== 'super') {
+        user.adminLevel = 'super';
         await user.save();
       }
     }
@@ -230,6 +245,69 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// ===== Super Admin Middleware =====
+function requireSuperAdmin(req, res, next) {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
+  const available = req.user.roles?.length ? req.user.roles : [req.user.role];
+  const activeRole = req.session.activeRole && available.includes(req.session.activeRole)
+    ? req.session.activeRole
+    : req.user.role;
+  if (activeRole !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  if (req.user.adminLevel !== 'super') return res.status(403).json({ error: 'Super admin access required' });
+  next();
+}
+
+// ===== Admin Management (Super Admin Only) =====
+app.get('/api/admin/admins', requireSuperAdmin, async (req, res) => {
+  try {
+    const admins = await User.find({ role: 'admin' })
+      .select('email name adminLevel createdAt')
+      .lean();
+    res.json(admins);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/admins', requireSuperAdmin, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    const normalEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalEmail });
+
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.role !== 'staff') return res.status(400).json({ error: 'Only staff members can be made admins' });
+    if (user.adminLevel === 'super') return res.status(400).json({ error: 'Already a super admin' });
+    if (user.adminLevel === 'regular') return res.status(400).json({ error: 'User is already an admin' });
+
+    user.adminLevel = 'regular';
+    user.role = 'admin';
+    user.permissions = ['manage_users', 'manage_courses', 'manage_announcements'];
+    await user.save();
+
+    res.json({ success: true, message: 'Admin role assigned', user });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/admin/admins/:id', requireSuperAdmin, async (req, res) => {
+  try {
+    if (req.params.id === String(req.user._id)) {
+      return res.status(400).json({ error: 'Cannot remove your own admin access' });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'Admin not found' });
+    if (user.adminLevel === 'super') return res.status(400).json({ error: 'Cannot remove super admin access' });
+
+    user.adminLevel = null;
+    user.role = 'staff';
+    user.permissions = [];
+    await user.save();
+
+    res.json({ success: true, message: 'Admin role removed' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ===== Admin: Users =====
 app.get('/api/admin/users', requireAdmin, async (req, res) => {
   try {
@@ -278,9 +356,61 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
 app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
   try {
     if (req.params.id === String(req.user._id)) return res.status(400).json({ error: 'Cannot delete your own account' });
-    const user = await User.findByIdAndDelete(req.params.id);
+    const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json({ success: true });
+
+    const { hardDelete } = req.body;
+    const isSuperAdmin = req.user.adminLevel === 'super';
+
+    // Only super admin can hard delete
+    if (hardDelete && !isSuperAdmin) {
+      return res.status(403).json({ error: 'Only super admins can permanently delete users' });
+    }
+
+    // Only students and staff can be deleted (soft or hard)
+    if (user.role !== 'student' && user.role !== 'staff') {
+      return res.status(400).json({ error: 'Only student and staff accounts can be deleted' });
+    }
+
+    if (hardDelete) {
+      // Super admin hard delete
+      await User.findByIdAndDelete(req.params.id);
+      res.json({ success: true, message: 'User permanently deleted' });
+    } else {
+      // Regular or super admin soft delete
+      user.isDeleted = true;
+      user.deletedAt = new Date();
+      user.deletedBy = req.user._id;
+      await user.save();
+      res.json({ success: true, message: 'User soft deleted (can be restored by super admin)' });
+    }
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ===== Super Admin: Restore Deleted User =====
+app.post('/api/admin/users/:id/restore', requireSuperAdmin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user.isDeleted) return res.status(400).json({ error: 'User is not deleted' });
+
+    user.isDeleted = false;
+    user.deletedAt = null;
+    user.deletedBy = null;
+    await user.save();
+
+    res.json({ success: true, message: 'User restored successfully' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ===== Super Admin: Get Deleted Users =====
+app.get('/api/admin/users/deleted/list', requireSuperAdmin, async (req, res) => {
+  try {
+    const deletedUsers = await User.find({ isDeleted: true })
+      .populate('deletedBy', 'name email')
+      .select('-grades -progress')
+      .lean();
+    res.json(deletedUsers);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

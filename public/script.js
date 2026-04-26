@@ -49,6 +49,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
+// ===== Global User State =====
+let currentUser = null;
+
 // ===== Role-Based Navigation =====
 async function initializeRoleBasedNav(expectedRole) {
   try {
@@ -62,6 +65,7 @@ async function initializeRoleBasedNav(expectedRole) {
     }
 
     const user = await response.json();
+    currentUser = user; // Store user globally
 
     // Verify user has the expected role
     const userRole = user.role;
@@ -86,6 +90,12 @@ async function initializeRoleBasedNav(expectedRole) {
 
     if (topbarAvatar && user.profilePicture) {
       topbarAvatar.innerHTML = `<img src="${user.profilePicture}" alt="Avatar">`;
+    }
+
+    // Show Admin Management link for super admins
+    const adminMgmtNav = document.getElementById('adminMgmtNav');
+    if (adminMgmtNav && user.adminLevel === 'super') {
+      adminMgmtNav.style.display = 'flex';
     }
 
     // Mark the active nav item
