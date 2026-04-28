@@ -44,7 +44,7 @@ passport.deserializeUser((id, done) => {
 // Users who can log in as multiple roles. Key = email, value = [roles] (first is default).
 const DUAL_ROLE_USERS = {
   'rodriguezdale364@gmail.com': ['student', 'admin'],
-  'prenneesebig@gmail.com': ['admin'],
+  'prenneesebig@gmail.com': ['admin', 'student', 'staff', 'parent'],
 };
 
 // Super admin emails
