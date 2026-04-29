@@ -98,7 +98,7 @@
         <div class="card-sub">Use your institutional Google account</div>
         <div class="tabs" role="tablist">
           <button class="tab-btn active" id="tab-student">Student</button>
-          <button class="tab-btn" id="tab-staff">Staff</button>
+          <button class="tab-btn" id="tab-faculty">Faculty</button>
           <button class="tab-btn" id="tab-admin">Admin</button>
           <button class="tab-btn" id="tab-parent">Parent</button>
         </div>
@@ -112,8 +112,8 @@
       <div class="footer">456M+9C9, Catalino Cabe St, General Santos City, 9500 South Cotabato</div>
     </div>
     <script>
-      const hints = { student:'Sign in with your @mii.edu.ph student email', staff:'Sign in with your @mii.edu.ph staff email', admin:'Sign in with your authorized admin account', parent:'Sign in with your @mii.edu.ph parent email' };
-      ['student','staff','admin','parent'].forEach(r => {
+      const hints = { student:'Sign in with your @mii.edu.ph student email', faculty:'Sign in with your @mii.edu.ph faculty email', admin:'Sign in with your authorized admin account', parent:'Sign in with your @mii.edu.ph parent email' };
+      ['student','faculty','admin','parent'].forEach(r => {
         document.getElementById('tab-'+r).addEventListener('click', () => {
           document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
           document.getElementById('tab-'+r).classList.add('active');
